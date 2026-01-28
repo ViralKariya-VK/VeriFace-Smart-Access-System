@@ -1,0 +1,48 @@
+{% extends 'Base_UI/base.html' %}
+
+{% load static %}
+
+{% block content %}
+{% with active_page="qr_generator" %}
+
+{% endwith %}
+
+<div class="form-container" style="background: none; margin-top:5vh">
+    <form action="qr_generator" method="post" class="login">
+
+
+        <div class="heading-primary">
+            One Time QR Generator
+        </div>
+
+        <div class="text-smaller tagline">
+            your identity. your door. veriface.
+        </div>
+
+
+        <div class="input-wrapper">
+            <span class="emoji">👤</span>
+            <input class="text-label" type="text" placeholder="Enter Guest Name" name="guest_name">
+        </div>
+
+        <div class="input-wrapper">
+            <span class="emoji">⏲</span>
+            <input class="text-label" type="text" placeholder="Enter Duration (in Minutes)" name="expiration_time">
+        </div>
+
+
+        <input id="qr_button" class="text-button" type="submit" value="Generate QR" style="background-color: #D4A373;">
+
+        <span class="success-message text-label">QR Code Generated!</span>
+
+    </form>
+
+    {% if qr_code %}
+    <div class="download-button">
+        <img src="{{ qr_code }}" alt="">
+        <a href="{{ qr_code }}" download>
+            <input class="text-button" type="submit" value="Download Generated QR Code">
+        </a>
+    </div>
+    {% endif %}
+    {% endblock %}

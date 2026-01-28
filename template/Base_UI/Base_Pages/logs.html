@@ -1,0 +1,41 @@
+{% extends 'Base_UI/base.html' %}
+
+{% load static %}
+
+{% block content %}
+{% with active_page="logs" %}
+
+{% endwith %}
+
+<div class="heading-secondary log-heading">
+    <div class="log-no">
+        Log <br>
+        No.
+    </div>
+    <div class="log-timestamp">
+        Timestamp
+    </div>
+    <div class="photo">
+        Photo
+    </div>
+</div>
+
+<div class="logs">
+    {% if face_records %}
+    {% for record in face_records %}
+    <div class="log-card">
+        <div class="log-no">
+            {{ forloop.counter }}
+        </div>
+        <div class="log-timestamp">
+            {{ record.timestamp }}
+        </div>
+        <div class="photo">
+            <img src="{{ record.image.url }}" alt="Photo">
+        </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+</div>
+
+{% endblock %}

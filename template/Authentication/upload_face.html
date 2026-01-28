@@ -1,0 +1,82 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VeriFace</title>
+    <link rel="stylesheet" type="text/css" href="{% static 'css/style.css' %}">
+</head>
+
+<body>
+    <div class="container">
+        <div class="back-button">
+            <a href="javascript:history.back()">
+                <img src="{% static 'image/Authentication/back-button.svg' %}" alt="back-button">
+            </a>
+        </div>
+
+        <div class="illustator">
+            <img id="preview-image" src="{% static 'image/Authentication/portrait.png' %}" style="height: 200px;" alt="">
+        </div>
+    </div>
+
+    <div class="form-container">
+        <form action="upload_face" method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="heading-primary">
+                Face Recognition
+            </div>
+
+            <div class="tagline text-smaller">
+
+            </div>
+
+            <input id="file-upload" type="file" name="face_image" accept="image/*" required>
+
+            {% if messages %}
+            {% for message in messages %}
+
+            <span class="error-message text-label">{{ message }}</span>
+            {% endfor %}
+            {% endif %}
+
+            <input class="text-button" type="submit" value="Upload Photo">
+            </span>
+
+            <div class="guidelines">
+                <h3>📌 Photo Requirements</h3>
+                <ul>
+                    <li>Your face must be clearly visible.</li>
+                    <li>Upload a passport-style photo (head and shoulders, front-facing).</li>
+                    <li>No other people should be in the photo.</li>
+                    <li>Do not wear sunglasses, hats, or accessories that block your face.</li>
+                    <li>Accepted formats: JPG, PNG. Max size: 5MB.</li>
+                </ul>
+            </div>
+        </form>
+    </div>
+
+<script>
+    const fileInput = document.getElementById('file-upload');
+        const previewImage = document.getElementById('preview-image');
+
+        fileInput.addEventListener('change', function () {
+            const file = this.files[0];
+            if (file) {
+                const reader = new FileReader();
+
+                reader.addEventListener('load', function () {
+                    previewImage.src = reader.result;
+                });
+
+                reader.readAsDataURL(file);
+            }
+        });
+</script>
+
+</body>
+
+</html>

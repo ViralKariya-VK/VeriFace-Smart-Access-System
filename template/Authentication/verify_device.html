@@ -1,0 +1,63 @@
+{% load static %}<!DOCTYPE html>
+
+
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VeriFace</title>
+    <link rel="stylesheet" type="text/css" href="{% static 'css/style.css' %}">
+</head>
+
+<body>
+    <div class="container">
+        <div class="back-button">
+            <a href="javascript:history.back()">
+                <img src="{% static 'image/Authentication/back-button.svg' %}" alt="back-button">
+            </a>
+        </div>
+
+        <div class="illustator">
+            <img src="{% static 'image/Authentication/product.svg' %}" alt="">
+        </div>
+    </div>
+
+    <div class="form-container">
+        <form action="verify_device" method="post">
+
+            {% csrf_token %}
+
+            <div class="heading-primary">
+                Link Your Smart Door
+            </div>
+
+            <div class="tagline text-smaller">
+                Link your Veriface device to get started
+            </div>
+
+            <div class="input-wrapper">
+                <span class="emoji">🔑</span>
+                <input class="text-label" type="text" placeholder="Enter Product Key" name="product_number" required>
+            </div>
+
+            {% if messages %}
+            {% for message in messages %}
+            <span class="error-message text-label">{{ message }}</span>
+            {% endfor %}
+            {% endif %}
+
+            <input class="text-button" type="submit" value="Verify Key">
+
+            <span class="text-label">
+                Already a user?
+                <a href="login">Login</a>
+            </span>
+        </form>
+    </div>
+
+
+
+</body>
+
+</html>

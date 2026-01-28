@@ -1,0 +1,654 @@
+/* Font Imports */
+
+@import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+
+
+/* Declaring Colors */
+:root {
+
+    /* Colors */
+    --color-primary: #0F046C;
+    --color-secondary: #988fed;
+    --color-accent: #D4A373;
+    --color-success: #2DD4BF;
+    --color-danger: #F87171;
+    --color-bg: #F9FAFB;
+    --color-text: #1F2937;
+    --color-muted: #6B7280;
+
+}
+
+
+/* Basic CSS Reset */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html,
+body {
+    height: 100%;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+img,
+picture,
+video,
+canvas,
+svg {
+    display: block;
+    max-width: 100%;
+}
+
+
+/* Setting CSS Base */
+
+body {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+
+    font-family: 'Inter', sans-serif;
+    font-size: 16px;
+    color: var(--color-text);
+    overflow: hidden;
+    background-color: var(--color-bg);
+}
+
+a{
+    text-decoration: none;
+}
+
+/* Defining Typography */
+
+.heading-primary {
+    font-weight: 700;
+    font-family: 'Poppins', sans-serif;
+    font-size: 2rem;
+    line-height: 1.2;
+    letter-spacing: 0;
+}
+
+.heading-secondary {
+    font-weight: 600;
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.375rem;
+    line-height: 1.2;
+    letter-spacing: 0;
+}
+
+.text-body {
+    font-weight: 400;
+    line-height: 1.5;
+    letter-spacing: 0;
+    font-size: 1rem;
+}
+
+.text-smaller {
+    font-weight: 400;
+    line-height: 1.5;
+    letter-spacing: 0;
+    font-size: 0.875;
+}
+
+.text-button {
+    font-weight: 500;
+    font-size: 1rem;
+    line-height: 1.5;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.text-label {
+    font-weight: 400;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    letter-spacing: 0;
+    color: var(--color-muted);
+}
+
+/* Authentication Pages CSS */
+
+.container {
+    height: 50vh;
+    width: 100vw;
+    background: linear-gradient(to bottom,
+            rgba(12, 4, 108, 0.4),
+            rgba(212, 163, 115, 0.4),
+            rgba(249, 250, 251, 1));
+}
+
+/* Back Button Module CSS */
+
+.back-button {
+    padding: 4vw;
+    width: auto;
+}
+
+.illustator {
+    padding: 3vw;
+    height: 80%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.illustator img {
+    max-width: 40vh;
+}
+
+.form-container {
+    height: 70vh;
+    width: 100vw;
+    background-image: url(images/blobs.svg);
+    background-repeat: no-repeat;
+    background-size: contain;
+    padding-top: 1rem;
+
+}
+
+form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1vh;
+}
+
+form .tagline {
+    color: var(--color-primary);
+    text-transform: capitalize;
+    margin-bottom: 1rem;
+}
+
+form .input-wrapper {
+    position: relative;
+}
+
+form .input-wrapper input {
+    width: 80vw;
+    height: 2.5rem;
+    font-size: 1.1rem;
+    border: 1px solid var(--color-primary);
+    border-radius: 6px;
+    text-indent: 3rem;
+    background-color: transparent;
+    color: var(--color-text);
+}
+
+form .input-wrapper input:active {
+    border: 1px solied var(--color-accent);
+}
+
+form .input-wrapper .emoji {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1.2rem;
+    pointer-events: none;
+}
+
+input[type="submit"] {
+    background-color: var(--color-primary);
+    color: var(--color-bg);
+    width: 81vw;
+    height: 2.8rem;
+    border-radius: 8px;
+    border: 0 none;
+}
+
+.error-message {
+    margin-top: -0.5rem;
+    padding: 0;
+    color: var(--color-danger);
+    height: 0.8rem;
+    visibility: hidden;
+}
+
+form .guidelines {
+    width: 90vw;
+    background: #fcfcfc;
+    border: 1px solid #dfe6e9;
+    padding: 20px;
+    margin-bottom: 30px;
+    border-radius: 8px;
+}
+
+.guidelines h3 {
+    margin-top: 0;
+    color: #2c3e50;
+    margin-bottom: 15px;
+    font-size: 1.5rem;
+}
+
+.guidelines ul {
+    padding-left: 20px;
+    margin: 0;
+    font-size: 15px;
+    color: #2f3542;
+}
+
+.guidelines li {
+    text-align: left;
+    margin-bottom: 10px;
+    line-height: 1.5;
+}
+
+
+
+/* Base App UI */
+
+.header {
+    flex-shrink: 0;
+    margin: 0;
+    padding: 0.5rem 0.5rem;
+    width: 100vw;
+    height: 7vh;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    background-color: var(--color-accent);
+}
+
+
+
+/* Common Components */
+
+.header .app-name {
+    width: 50%;
+    margin-left: 3vw;
+    font-size: 1.5rem;
+}
+
+.header .user-info {
+    width: 50%;
+    display: flex;
+    flex-direction: row-reverse;
+    gap: 0.5rem;
+    align-items: center;
+    margin-right: 3vw;
+}
+
+.header .user-info a img {
+    height: 80%;
+    width: 2rem;
+}
+
+
+
+
+/* Footer */
+
+.footer{
+    flex-shrink: 0;
+    margin: 0;
+    padding: 0;
+    position: fixed;
+    bottom: 0;
+    width: 100vw;
+}
+
+.nav-bar{
+    margin: 0;
+    padding: 0;
+    width: 100vw;
+    height: 7vh;
+    background-color: var(--color-accent);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-top: 6px solid var(--color-accent);
+}
+
+.nav-bar ul{
+    display: flex;
+    width: 100%;
+    height: 100%;
+    justify-content: space-between;
+    padding: 0.5rem 1.5rem;
+    /* padding: 0; */
+}
+
+.nav-bar ul li{
+    position: relative;
+    list-style: none;
+    flex: 1;
+    z-index: 1;
+    justify-items: center;
+    
+}
+
+.nav-bar ul li a{
+    width: 100%;
+    height: 100%;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    align-content: center;
+    color: var(--color-text);
+}
+
+.nav-bar ul li a .icon{
+    height: fit-content;
+}
+
+.nav-bar ul li a .icon img{
+    height: 2rem;
+}
+
+.nav-bar ul li a .text{
+    text-align: center;
+    opacity: 0;
+}
+
+.nav-bar ul li.active a .icon{
+    transform: translateY(-1.2rem);
+}
+
+.nav-bar ul li.active a .text{
+    opacity: 1;
+}
+
+.footer .indicator {
+    position: absolute;
+    top: -32%;
+    background: var(--color-bg); 
+    width: 4rem;
+    height: 4rem;
+    border-radius: 50%;
+    border: 0.25rem solid var(--color-accent);
+    transition: 0.2s ease;
+}
+
+
+
+
+/* Section */
+
+.section{
+    background-color: var(--color-bg);
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 8vh - 5vh);
+    /* overflow-y: auto; */
+    flex: 1;
+    box-shadow: var(--color-primary);
+}
+
+
+/* door_control.html - Section */
+
+.section .door{
+    width: 100%;
+    top: 5vh;
+    height: 85vh;
+    
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.section .door .door-control{
+    display: flex;
+    justify-content: center;
+    padding: 2rem;
+}
+
+.door .door-control button{
+    border: none;
+    background: transparent;
+    justify-items: center;
+}
+
+.section .door .door-control img{
+    width: 70%;
+}
+
+.section .door .door-info{
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+}
+
+
+
+
+/* logs.html - Section */
+
+.section .logs{
+    display: flex;
+    flex-direction: column;
+    background-color: var(--color-bg);
+    margin: 0.5rem 1rem;
+    gap: 0.5rem;
+    overflow-y: auto;
+    height: 72%;
+    padding: 0.1rem ;
+    border-radius: 0.5rem;
+}
+
+.section .log-heading{
+    font-size: 1.2rem;
+    margin: 0 1rem;
+    padding: 0.5rem 1rem;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    background-color: transparent;
+    border-bottom: 1px solid var(--color-text);
+}
+
+.section .logs .log-card{
+    border-radius: 0.5rem;
+    padding: 0.5rem 2rem;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    background-color: transparent; 
+    border: 1px solid var(--color-text);  
+}
+
+.section .logs .log-card .photo img{
+    height: 5rem;
+    width: 5rem;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+
+
+/* live_feed.html - Section */
+
+.section .live-feed{
+    margin-top: 1vh;
+    justify-items: center;
+    padding: 0 0.1rem;
+    height: 80%;
+    /* border: 1px solid black; */
+}
+
+.section .live-feed img{
+    margin-top: 1vh;
+    object-fit: cover;
+    height: 98%;
+    width: 100%;
+}
+
+
+
+
+/* User Page */
+
+.user-top{
+    height: 20vh;
+    width: 100vw;
+    background: linear-gradient(to bottom,
+            rgba(12, 4, 108, 0.4),
+            rgba(212, 163, 115, 0.4),
+            rgba(249, 250, 251, 1));
+
+    display: flex;
+    flex-direction: column;
+    justify-items: center;
+}
+
+.user-top .page-title{
+    text-align: center;
+}
+
+.user-top .page-title .text{
+    font-size: 2rem;
+}
+
+.user-top .user-photo{
+    margin-top: 5vh;
+    width: 100vw;
+    height: 15vh;
+    justify-items: center;
+    z-index: 1;
+}
+
+.user-top .user-photo img{
+    height: 150px;
+    width: 150px;  
+
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.user-top .user-info{
+    margin-top: -20%;
+    justify-items: center;
+    border-radius: 2rem;
+}
+.user-top .user-info input{
+    margin-top: 25%;
+}
+
+.user-top .user-info .info{
+    margin: 0rem 4rem;
+    height: 40vh;
+    width: 85%;
+    background-color: var(--color-accent);
+    border: 2px dashed var(--color-primary);
+    border-radius: 1rem;
+    justify-items: center;
+}
+
+.user-top .user-info .info .details{
+    padding-top: 30%;
+    text-align: center;
+}
+
+
+
+
+
+
+/* 
+  ##Device = Desktops
+  ##Screen = 1281px to higher resolution desktops
+*/
+
+@media (min-width: 1281px) {
+
+    body {
+        display: none;
+    }
+
+}
+
+
+
+/* 
+  ##Device = Laptops, Desktops
+  ##Screen = B/w 1025px to 1280px
+*/
+
+@media (min-width: 1025px) and (max-width: 1280px) {
+
+    body {
+        display: none;
+    }
+
+}
+
+
+
+/* 
+  ##Device = Tablets, Ipads (portrait)
+  ##Screen = B/w 768px to 1024px
+*/
+
+@media (min-width: 768px) and (max-width: 1024px) {
+
+    body {
+        font-size: 20px;
+    }
+
+    .heading-primary {
+        font-size: 3rem;
+    }
+
+    .heading-secondary {
+        font-size: 2.0625;
+    }
+
+    .text-body {
+        font-size: 1.5rem;
+    }
+
+    .text-smaller {
+        font-size: 1.3125rem;
+    }
+
+    .text-button {
+        font-size: 1.2rem;
+    }
+
+    .text-label {
+        font-size: 1rem;
+    }
+
+    .illustator img {
+        transform: scale(1.5);
+    }
+
+    form {
+        gap: 0.8vh;
+    }
+
+
+    form .input-wrapper input {
+        height: 3rem;
+        font-size: 1.3rem;
+    }
+
+    input[type="submit"] {
+        height: 3.2rem;
+
+    }
+}
+
+
+
+/* 
+  ##Device = Tablets, Ipads (landscape)
+  ##Screen = B/w 768px to 1024px
+*/
+
+@media (min-width: 768px) and (max-width: 1024px) and (orientation: landscape) {
+
+    body {
+        display: none;
+    }
+
+}

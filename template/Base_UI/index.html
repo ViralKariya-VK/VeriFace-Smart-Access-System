@@ -1,0 +1,19 @@
+{% extends 'Base_UI/base.html' %}
+
+{% load static %}
+
+{% block content %}
+{% with active_page="index" %}
+{% endwith %}
+
+<div class="live-feed">
+    <img id="video-strem" src="{% url 'video_feed' %}" alt="Live Feed">
+</div>
+
+<script>
+    const img = document.getElementById("video-stream");
+    setInterval(() => {
+      img.src = "{% url 'video_feed' %}?t=" + new Date().getTime(); // Prevent caching
+    }, 33); // ~30 FPS (1000ms / 30)
+  </script>
+{% endblock %}

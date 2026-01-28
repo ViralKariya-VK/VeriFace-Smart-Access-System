@@ -1,0 +1,69 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" type="text/css" href="{% static 'css/style.css' %}">
+</head>
+
+<body>
+    <header class="header">
+        <div class="heading-primary app-name">
+            VeriFace
+        </div>
+        <div class="user-info">
+            <a href="{% url 'user' %}">
+                <img src="{% static 'image/Base_UI/header/user.svg' %}" alt="">
+            </a>
+            <span class="user-name">Hi, {{ user.username }}</span>
+        </div>
+    </header>
+
+    <section class="section">
+        {% block content %}
+
+        {% endblock %}
+    </section>
+
+    <footer class="footer">
+        <div class="nav-bar">
+            <ul>
+                <li class="list {% if active_page == 'door_control' %}active{% endif %}">
+                    <a href="{% url 'door_page' %}">
+                        <span class="icon"><img src="{% static 'image/Base_UI/footer/door.svg' %}"></span>
+                        <span class="text">Door Control</span>
+                    </a>
+                </li>
+                <li class="list {% if active_page == 'live_feed' %}active{% endif %}">
+                    <a href="{% url 'index' %}">
+                        <span class="icon">
+                            <img src="{% static 'image/Base_UI/footer/cctv.svg' %}">
+                        </span>
+                        <span class="text">Live Feed</span>
+                    </a>
+                </li>
+                <li class="list {% if active_page == 'qr_generator' %}active{% endif %}">
+                    <a href="{% url 'qr_generator' %}">
+                        <span class="icon"><img src="{% static 'image/Base_UI/footer/guest.svg' %}"></span>
+                        <span class="text">Guest QR</span>
+                    </a>
+                </li>
+                <li class="list {% if active_page == 'logs' %}active{% endif %}">
+                    <a href="{% url 'logs' %}">
+                        <span class="icon"><img src="{% static 'image/Base_UI/footer/logs.svg' %}"></span>
+                        <span class="text">Logs</span>
+                    </a>
+                </li>
+                <div class="indicator"></div>
+            </ul>
+        </div>
+        </div>
+    </footer>
+
+    <script src="{% static 'js/script.js' %}"></script>
+
+</html>

@@ -1,0 +1,102 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title></title>
+    <style>
+        /* Full-page height and flexbox centering */
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #183D3D;
+            overflow: hidden; /* Prevents scrolling */
+            transition: background-color 0.8s ease-in-out;
+            position: relative;
+        }
+
+        /* Image styling with transition */
+        .centered-image {
+            max-width: 90%;
+            max-height: 80vh;
+            width: auto;
+            height: auto;
+            border-radius: 10px;
+            opacity: 0;
+            transform: scale(0.8);
+            transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
+        }
+
+        /* Show image smoothly after page loads */
+        .centered-image.loaded {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        /* Button Styling */
+        .redirect-button {
+            position: absolute;
+            bottom: 20vw; /* Keeps the button at the same height */
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%; /* Button takes 90% width of the screen */
+            max-width: 400px; /* Optional: Prevents the button from getting too wide on large screens */
+            padding: 12px 24px;
+            font-size: 18px;
+            font-weight: 500;
+            color: #183D3D;
+            background-color: #fff;
+            border: none;
+            border-radius: 15px; /* Updated border-radius */
+            cursor: pointer;
+            transition: background-color 0.3s ease-in-out, opacity 0.5s ease-in-out;
+            opacity: 0; /* Initially hidden */
+        }
+
+        /*.redirect-button:hover {
+            background-color: #D4A373;
+            color: #fff;
+        }*/
+
+        /* Show button smoothly */
+        .redirect-button.show {
+            opacity: 1;
+        }
+    </style>
+</head>
+
+<body>
+
+    <img src="{% static 'image/Landing_Pages/logo_main.png' %}" alt="Centered Image" class="centered-image" id="image">
+
+    <button class="redirect-button" id="button" onclick="redirectToNextPage()">Get Started</button>
+
+    <script>
+        window.addEventListener('load', () => {
+            const image = document.getElementById('image');
+            const button = document.getElementById('button');
+
+            // Show image smoothly
+            image.classList.add('loaded');
+
+            // Show button smoothly after image appears (delay 500ms)
+            setTimeout(() => {
+                button.classList.add('show');
+            }, 500);
+        });
+
+        function redirectToNextPage() {
+            window.location.href = "login"; // Change this to your target page
+        }
+    </script>
+
+</body>
+
+</html>

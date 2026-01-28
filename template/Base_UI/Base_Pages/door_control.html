@@ -1,0 +1,22 @@
+{% extends 'Base_UI/base.html' %}
+
+{% load static %}
+
+{% block content %}
+{% with active_page="door_control" %}
+{% endwith %}
+
+<div class="door">
+    <form action="{% url 'control' %}" method="post" class="door-control">
+        <!-- Single button: Display image based on door status -->
+        <button type="submit" name="command" value="{% if door_status == 'off' %}open{% else %}close{% endif %}">
+            <img src="{% static 'image/Base_UI/power-on.png' %}" alt="Toggle Door" class="">
+        </button>
+    </form>
+    <div class="door-info">
+        <span class="heading-secondary">Door is {% if door_status == 'off' %} Closed {% elif door_status == 'on' %} Opened {% else %} Unknown {% endif %}</span>
+        <span class="text-body">Tap the Power Button to {% if door_status == 'off' %} Open {% elif door_status == 'on' %} Close {% else %} Toggle {% endif %}</span>
+    </div> 
+</div>
+
+{% endblock %}

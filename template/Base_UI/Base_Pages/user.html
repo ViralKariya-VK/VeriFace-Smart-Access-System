@@ -1,0 +1,44 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VeriFace</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+
+<body>
+    <div class="user-top">
+        <div class="back-button">
+            <a href="{% url 'door_page' %}">
+                <img src="{% static 'image/Authentication/back-button.svg' %}" alt="back-button">
+            </a>
+        </div>
+        <div class="page-title">
+            <h1 class="text heading-secondary">User Profile</h1>
+        </div>
+        <span class="user-photo">
+            <img src="{{ site_user.face_image.url }}" alt="">
+        </span>
+        <div class="user-info">
+            <div class="info">
+                <div class="details">
+                    <span class="heading-primary">{{ user.username }}</span>
+                    <br>
+                    <span class="text-body">{{ user.email }}</span>
+                    <br>
+                    <br>
+                    <span class="text-body">Product-Key: <b>{{ site_user.device.product_number }}</b></span>
+                </div>
+                <form action="custom_logout" method="post">
+                    <input class="text-button" type="submit" value="Logout">
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
