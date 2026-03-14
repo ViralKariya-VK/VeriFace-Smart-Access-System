@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="feed-container">
+    <div class="feed-header">
+        <span class="feed-title">Live Feed</span>
+        <span class="badge badge-accent" id="feed-status">● LIVE</span>
+    </div>
+
+    <div class="feed-frame">
+        <img id="video-stream"
+             src="{% url 'video_stream' %}"
+             alt="Live Feed">
+    </div>
+
+    <div style="font-family: var(--font-mono); font-size: 0.7rem;
+                color: var(--text-muted); letter-spacing: 0.06em;">
+        {{ user.profile.device.name }} ·
+        <span id="live-time"></span>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Live clock
+    function updateTime() {
+        document.getElementById('live-time').textContent =
+            new Date().toLocaleTimeString('en-IN', {hour12: false});
+    }
+    updateTime();
+    setInterval(updateTime, 1000);
+</script>
+{% endblock %}

@@ -1,0 +1,16 @@
+# For Mac Users
+# Install cmake using: brew install cmake
+
+# Requirements
+django 
+python-decouple 
+insightface 
+onnxruntime 
+opencv-python-headless 
+pillow 
+pyserial 
+cryptography 
+qrcode 
+psycopg2-binary 
+numpy
+pywebpush

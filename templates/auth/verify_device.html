@@ -1,0 +1,61 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Link Device — VeriFace</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+<div class="auth-page">
+
+    <div class="auth-hero">
+        <div class="auth-hero-icon">
+            <svg viewBox="0 0 24 24">
+                <rect x="2" y="3" width="20" height="14" rx="2"/>
+                <line x1="8" y1="21" x2="16" y2="21"/>
+                <line x1="12" y1="17" x2="12" y2="21"/>
+            </svg>
+        </div>
+        <div class="auth-title fade-up">Link Device</div>
+        <div class="auth-subtitle fade-up">enter your product key</div>
+    </div>
+
+    <div class="auth-body">
+        <form method="POST" style="display: flex; flex-direction: column; gap: 14px;">
+            {% csrf_token %}
+
+            {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                <div class="message error">{{ message }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="form-group fade-up fade-up-1">
+                <label class="form-label">Product Key</label>
+                <input class="form-input" type="text"
+                       name="product_key"
+                       placeholder="e.g. DOOR-A1B2C3"
+                       autocomplete="off"
+                       style="letter-spacing: 0.1em; text-transform: uppercase;">
+            </div>
+
+            <div class="fade-up fade-up-2" style="margin-top: 8px;">
+                <button type="submit" class="btn btn-primary">Verify Key</button>
+            </div>
+
+            <div class="fade-up fade-up-3" style="text-align: center;">
+                <a href="{% url 'login' %}"
+                   style="font-family: var(--font-mono); font-size: 0.75rem;
+                          color: var(--text-muted);">
+                    Already registered? <span style="color: var(--accent);">Sign In</span>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+</body>
+</html>

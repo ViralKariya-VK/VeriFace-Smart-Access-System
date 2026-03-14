@@ -1,0 +1,47 @@
+{% for log in access_logs %}
+<div class="log-card fade-up">
+
+    {% if log.image %}
+        <img class="log-photo" src="{{ log.image.url }}" alt="">
+    {% else %}
+        <div class="log-photo"
+             style="background: var(--bg-elevated);
+                    border-radius: var(--radius-sm);
+                    display: flex; align-items: center; justify-content: center;">
+            <svg width="20" height="20" viewBox="0 0 24 24"
+                 fill="none" stroke="var(--text-muted)" stroke-width="1.5">
+                <circle cx="12" cy="8" r="4"/>
+                <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+            </svg>
+        </div>
+    {% endif %}
+
+    <div class="log-info">
+        <div class="log-name">
+            {% if log.profile %}
+                {{ log.profile.user.username }}
+            {% elif log.access_type == 'qr' %}
+                Guest (QR)
+            {% else %}
+                Unknown
+            {% endif %}
+        </div>
+        <div class="log-time font-mono">
+            {{ log.timestamp|date:"d M Y · H:i:s" }}
+        </div>
+        <div style="margin-top: 2px;">
+            <span class="badge badge-accent"
+                  style="font-size: 0.6rem; padding: 2px 8px;">
+                {{ log.access_type|upper }}
+            </span>
+        </div>
+    </div>
+
+    {% if log.access_granted %}
+        <span class="badge badge-success">GRANTED</span>
+    {% else %}
+        <span class="badge badge-danger">DENIED</span>
+    {% endif %}
+
+</div>
+{% endfor %}

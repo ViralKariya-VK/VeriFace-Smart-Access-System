@@ -1,0 +1,72 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#080C12">
+    <title>VeriFace</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="manifest" href="{% static 'manifest.json' %}">
+</head>
+<body>
+<div class="landing-page">
+    <div class="landing-grid"></div>
+    <div class="landing-glow"></div>
+
+    <div class="landing-content">
+        <div class="fade-up fade-up-1">
+            <!-- Lock icon -->
+            <svg width="56" height="56" viewBox="0 0 24 24" fill="none"
+                 stroke="#00D4FF" stroke-width="1.5" style="margin: 0 auto 24px;">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0110 0v4"/>
+            </svg>
+        </div>
+
+        <div class="landing-logo fade-up fade-up-2">
+            VERI<span>FACE</span>
+        </div>
+
+        <div class="landing-tagline fade-up fade-up-3">
+            AI-Powered Door Security
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 320px;"
+             class="fade-up fade-up-4">
+            <a href="{% url 'login' %}" class="btn btn-primary" id="get-started-btn"
+            onclick="requestNotificationPermission(event)">
+                Get Started
+            </a>
+        </div>
+    </div>
+</div>
+</body>
+
+<script>
+async function requestNotificationPermission(event) {
+    // Don't block navigation — run permission request in background
+    // User still gets taken to login immediately
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'granted') return;
+    if (Notification.permission === 'denied') return;
+
+    // Request permission — browser shows the popup
+    // We don't await this so navigation isn't blocked
+    Notification.requestPermission().then(permission => {
+        console.log('Notification permission:', permission);
+    });
+}
+
+// Also register service worker here early
+// Why here and not just base.html?
+// Landing page is often the first page loaded — registering SW
+// early means it's ready by the time user logs in and we need push
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js')
+        .then(reg => console.log('✅ SW registered early'))
+        .catch(e => console.log('SW failed:', e));
+}
+</script>
+
+</html>

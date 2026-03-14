@@ -1,0 +1,77 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile — VeriFace</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+<div class="profile-page">
+
+    <div class="profile-hero">
+        <a href="{% url 'door_control' %}"
+           style="position: absolute; top: 16px; left: 16px;
+                  color: var(--text-muted);">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="1.8">
+                <path d="M19 12H5M12 5l-7 7 7 7"/>
+            </svg>
+        </a>
+
+        {% if user.profile.face_image %}
+            <img class="profile-avatar"
+                 src="{{ user.profile.face_image.url }}" alt="">
+        {% else %}
+            <div class="profile-avatar"
+                 style="background: var(--bg-elevated);
+                        display: flex; align-items: center; justify-content: center;">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none"
+                     stroke="var(--accent)" stroke-width="1.5">
+                    <circle cx="12" cy="8" r="4"/>
+                    <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+                </svg>
+            </div>
+        {% endif %}
+
+        <div class="profile-name">{{ user.username }}</div>
+        <span class="badge {% if user.profile.is_owner %}badge-accent{% else %}badge-success{% endif %}">
+            {{ user.profile.role|upper }}
+        </span>
+    </div>
+
+    <div class="profile-body" style="overflow-y: auto; height: calc(50vh); padding-bottom: 100px;">
+        <div class="profile-row fade-up fade-up-1">
+            <span class="profile-row-label">Email</span>
+            <span class="profile-row-value">{{ user.email }}</span>
+        </div>
+        <div class="profile-row fade-up fade-up-2">
+            <span class="profile-row-label">Device</span>
+            <span class="profile-row-value">{{ user.profile.device.name }}</span>
+        </div>
+        <div class="profile-row fade-up fade-up-3">
+            <span class="profile-row-label">Product Key</span>
+            <span class="profile-row-value font-mono">
+                {{ user.profile.device.device_id }}
+            </span>
+        </div>
+        <div class="profile-row fade-up fade-up-4">
+            <span class="profile-row-label">Members</span>
+            <span class="profile-row-value font-mono">
+                {{ user.profile.device.member_count }} / 5
+            </span>
+        </div>
+
+        <div class="fade-up" style="margin-top: auto; padding-top: 16px;">
+            <form method="POST" action="{% url 'logout' %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger">
+                    Sign Out
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+</body>
+</html>

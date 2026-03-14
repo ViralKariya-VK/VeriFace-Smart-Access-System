@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="logs-container">
+    <div style="display: flex; align-items: center; 
+                justify-content: space-between; margin-bottom: 16px;">
+        <div class="logs-title">Access Logs</div>
+        <span style="font-family: var(--font-mono); font-size: 0.7rem;
+                     color: var(--text-muted);">
+            {{ total }} TOTAL
+        </span>
+    </div>
+
+    <div class="log-list" id="log-list">
+        {% if access_logs %}
+            {% for log in access_logs %}
+            <div class="log-card fade-up"
+                 style="animation-delay: {{ forloop.counter0 }}00ms">
+
+                {% if log.image %}
+                    <img class="log-photo" src="{{ log.image.url }}" alt="">
+                {% else %}
+                    <div class="log-photo"
+                         style="background: var(--bg-elevated);
+                                border-radius: var(--radius-sm);
+                                display: flex; align-items: center;
+                                justify-content: center;">
+                        <svg width="20" height="20" viewBox="0 0 24 24"
+                             fill="none" stroke="var(--text-muted)" stroke-width="1.5">
+                            <circle cx="12" cy="8" r="4"/>
+                            <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+                        </svg>
+                    </div>
+                {% endif %}
+
+                <div class="log-info">
+                    <div class="log-name">
+                        {% if log.profile %}
+                            {{ log.profile.user.username }}
+                        {% elif log.access_type == 'qr' %}
+                            Guest (QR)
+                        {% else %}
+                            Unknown
+                        {% endif %}
+                    </div>
+                    <div class="log-time font-mono">
+                        {{ log.timestamp|date:"d M Y · H:i:s" }}
+                    </div>
+                    <div style="margin-top: 2px;">
+                        <span class="badge badge-accent"
+                              style="font-size: 0.6rem; padding: 2px 8px;">
+                            {{ log.access_type|upper }}
+                        </span>
+                    </div>
+                </div>
+
+                {% if log.access_granted %}
+                    <span class="badge badge-success">GRANTED</span>
+                {% else %}
+                    <span class="badge badge-danger">DENIED</span>
+                {% endif %}
+
+            </div>
+            {% endfor %}
+        {% else %}
+            <div style="text-align: center; padding: 48px 24px;
+                        font-family: var(--font-mono); font-size: 0.75rem;
+                        color: var(--text-muted); letter-spacing: 0.08em;">
+                NO ACCESS LOGS YET
+            </div>
+        {% endif %}
+    </div>
+
+    {% if has_more %}
+    <div style="padding: 16px 0; text-align: center;">
+        <button id="load-more-btn"
+                onclick="loadMore({{ next_page }})"
+                class="btn btn-ghost"
+                style="width: auto; padding: 10px 32px;">
+            Load More
+        </button>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function loadMore(page) {
+    const btn = document.getElementById('load-more-btn');
+    btn.textContent = 'Loading...';
+    btn.disabled = true;
+
+    fetch(`/logs/?page=${page}`, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        // Append new cards to list
+        const list = document.getElementById('log-list');
+        list.insertAdjacentHTML('beforeend', data.html);
+
+        // Update or remove load more button
+        if (data.has_more) {
+            btn.textContent = 'Load More';
+            btn.disabled = false;
+            btn.onclick = () => loadMore(data.next_page);
+        } else {
+            btn.parentElement.remove();
+        }
+    })
+    .catch(() => {
+        btn.textContent = 'Load More';
+        btn.disabled = false;
+    });
+}
+</script>
+{% endblock %}

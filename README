@@ -1,0 +1,530 @@
+# VeriFace 🔐
+### AI-Powered Smart Door Security System
+
+> A full-stack IoT security platform that combines face recognition, QR guest access, live CCTV streaming, and hardware door control — installable as a mobile PWA.
+
+---
+
+## What Is This?
+
+VeriFace is a smart door security system you can actually build and deploy at home. It turns any Android/iPhone into a security panel for your door — with face recognition that automatically unlocks when it sees you, a live camera feed, QR codes for guests, and a full access log.
+
+Built with Django, InsightFace ArcFace (state-of-the-art face recognition), OpenCV, and Arduino for hardware control.
+
+---
+
+## Features
+
+- **Face Recognition Door Unlock** — ArcFace 512-d embeddings with cosine similarity. Enrolls from a single photo. Auto-opens door, auto-closes after 5 seconds.
+- **Live CCTV Feed** — MJPEG stream at 30 FPS. Supports any IP camera app (DroidCam, IP Webcam, AirDroid) or laptop webcam.
+- **Manual Door Control** — Toggle door open/close from anywhere via the app.
+- **QR Guest Access** — Generate encrypted, time-limited QR codes for guests. Per-QR Fernet encryption keys. Device-scoped so QRs only work on your door.
+- **Access Logs** — Every face detection, QR scan, and manual action logged with photo and timestamp.
+- **Camera Blocked Alerts** — Detects when camera is physically covered. Sends push notification + in-app banner.
+- **Web Push Notifications** — VAPID-based push via browser. Works even when app is closed.
+- **PWA — Installable on Phone** — Works as a native-feeling app on Android and iPhone. Portrait-only, mobile-first design.
+- **Multi-User Household** — Up to 5 family members per device. First member is owner (admin rights), rest are members.
+- **Owner Controls** — Only owner can generate guest QRs and revoke access.
+- **Simulation Mode** — Runs without Arduino hardware. Door commands print to terminal.
+- **SQLite or PostgreSQL** — Switch via `.env`. SQLite works out of the box for demos.
+
+---
+
+## System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        INPUT LAYER                          │
+│  IP Camera / Webcam → CameraManager (singleton reader thread)│
+└──────────────────────────┬──────────────────────────────────┘
+                           │ frames
+          ┌────────────────┼────────────────┐
+          ▼                ▼                ▼
+   Live Feed (30fps)  Recognition     QR Scanner
+   MJPEG Stream       Pipeline (2fps)  (10fps)
+   → Browser          │                │
+                      ▼                ▼
+              InsightFace ArcFace   Fernet Decrypt
+              Cosine Similarity     Expiry Check
+              threshold: 0.5        Device Scope
+                      │                │
+                      └────────┬───────┘
+                               ▼
+                        DoorController
+                        (singleton)
+                       /            \
+               Arduino Serial     Simulation
+               OPEN/CLOSE         Terminal Print
+                       \            /
+                        AccessLog DB
+                           │
+                        Logs Page
+
+┌─────────────────────────────────────────────────────────────┐
+│                    NOTIFICATION LAYER                        │
+│  Camera Monitor → blocked/offline → Web Push (VAPID)        │
+│                                  → In-App Banner            │
+│  Face Match    → door opened     → Push all family members  │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│                    AUTH / ENROLLMENT                         │
+│  Verify Device Key → Register → Upload Face Photo           │
+│  → InsightFace Embedding → 512-d .npy file saved            │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Backend | Django 5.2, Python 3.10 |
+| Face Recognition | InsightFace ArcFace (buffalo_l), ONNX Runtime |
+| Computer Vision | OpenCV |
+| Hardware | Arduino Uno + door lock relay |
+| Database | SQLite (default) / PostgreSQL |
+| Encryption | Fernet (cryptography library) |
+| Push Notifications | Web Push API + VAPID (pywebpush) |
+| Camera | Any MJPEG stream — DroidCam, IP Webcam, AirDroid, or laptop webcam |
+| Frontend | Django Templates, Vanilla CSS/JS, PWA |
+| Fonts | Syne, JetBrains Mono, Inter |
+
+---
+
+## Project Structure
+
+```
+veriface/
+├── .env                    # Secrets and config (never commit this)
+├── .env.example            # Template for setup
+├── manage.py
+├── README.md
+│
+├── config/                 # Django project settings
+│   ├── settings.py
+│   ├── urls.py
+│   └── wsgi.py
+│
+├── apps/
+│   ├── core/               # Shared models, admin, app startup
+│   │   ├── models.py       # Device, Profile, AccessLog, Guest, PushSubscription
+│   │   ├── admin.py
+│   │   └── apps.py         # AppConfig — starts cameras, QR scanners, pipelines
+│   │
+│   ├── auth_app/           # Registration, login, logout
+│   │   ├── views.py
+│   │   └── urls.py
+│   │
+│   ├── camera/             # Camera stream management
+│   │   ├── manager.py      # CameraManager singleton + blocked detection
+│   │   ├── views.py        # Live feed + MJPEG stream
+│   │   └── urls.py
+│   │
+│   ├── door/               # Arduino control
+│   │   ├── arduino.py      # DoorController singleton + simulation mode
+│   │   ├── views.py
+│   │   └── urls.py
+│   │
+│   ├── recognition/        # Face recognition
+│   │   ├── engine.py       # InsightFace ArcFace wrapper
+│   │   ├── pipeline.py     # Background recognition thread per device
+│   │   ├── views.py        # Access logs
+│   │   └── urls.py
+│   │
+│   ├── guest/              # QR guest access
+│   │   ├── generator.py    # Fernet-encrypted QR generation
+│   │   ├── scanner.py      # Background QR scanner thread
+│   │   ├── views.py
+│   │   └── urls.py
+│   │
+│   └── notifications/      # Web Push
+│       ├── push.py         # VAPID push sender
+│       ├── views.py        # Subscription endpoints
+│       └── urls.py
+│
+├── templates/
+│   ├── base.html           # App shell (header + footer nav)
+│   ├── landing.html
+│   ├── auth/               # Login, register, verify device, upload face
+│   └── app/                # Live feed, door control, QR, logs, user profile
+│
+└── static/
+    ├── css/style.css       # Design system — industrial security × luxury tech
+    ├── js/app.js           # Camera status polling + push notification setup
+    ├── js/sw.js            # Service worker (PWA + push)
+    ├── manifest.json       # PWA manifest
+    └── icons/              # PWA icons (192x192, 512x512)
+```
+
+---
+
+## Prerequisites
+
+- Mac, Linux, or Windows
+- Python 3.10+
+- Conda (recommended) or virtualenv
+- Arduino Uno + relay module + door lock (optional — simulation mode works without it)
+- Any IP camera app on your phone OR a laptop webcam
+
+---
+
+## Setup
+
+### 1. Clone the repo
+
+```bash
+git clone https://github.com/yourusername/veriface.git
+cd veriface
+```
+
+### 2. Create conda environment
+
+```bash
+conda create -n veriface python=3.10
+conda activate veriface
+```
+
+### 3. Install dependencies
+
+**Mac (Apple Silicon):**
+```bash
+brew install cmake
+pip install django python-decouple insightface onnxruntime opencv-python-headless \
+    pillow pyserial cryptography qrcode psycopg2-binary numpy pywebpush py-vapid
+```
+
+**Linux / Intel Mac / Windows:**
+```bash
+pip install django python-decouple insightface onnxruntime opencv-python-headless \
+    pillow pyserial cryptography qrcode psycopg2-binary numpy pywebpush py-vapid
+```
+
+### 4. Generate VAPID keys for push notifications
+
+```bash
+python -c "
+from py_vapid import Vapid
+import base64
+
+v = Vapid()
+v.generate_keys()
+
+pub_key = v.public_key.public_bytes(
+    __import__('cryptography.hazmat.primitives.serialization', fromlist=['Encoding','PublicFormat']).Encoding.X962,
+    __import__('cryptography.hazmat.primitives.serialization', fromlist=['Encoding','PublicFormat']).PublicFormat.UncompressedPoint
+)
+pub_b64 = base64.urlsafe_b64encode(pub_key).decode().rstrip('=')
+priv_key = v.private_pem().decode().strip().replace('\n', '\\n')
+
+print('VAPID_PUBLIC_KEY=' + pub_b64)
+print('VAPID_PRIVATE_KEY=' + priv_key)
+"
+```
+
+Copy both values for the next step.
+
+### 5. Configure environment
+
+Copy the example env file:
+```bash
+cp .env.example .env
+```
+
+Edit `.env`:
+```env
+SECRET_KEY=your-random-secret-key-here
+DEBUG=True
+ALLOWED_HOSTS=*
+CSRF_TRUSTED_ORIGINS=http://localhost:8000
+
+# Database — sqlite or postgresql
+DB_ENGINE=sqlite
+
+# PostgreSQL (only if DB_ENGINE=postgresql)
+DB_NAME=veriface
+DB_USER=postgres
+DB_PASSWORD=yourpassword
+DB_HOST=localhost
+DB_PORT=5432
+
+# Arduino — find your port with: ls /dev/tty.usb* (Mac) or ls /dev/ttyACM* (Linux)
+ARDUINO_PORT=/dev/tty.usbmodem1101
+ARDUINO_BAUDRATE=9600
+
+# Push notifications
+VAPID_PUBLIC_KEY=your_public_key_from_step_4
+VAPID_PRIVATE_KEY=your_private_key_from_step_4
+VAPID_CLAIMS_EMAIL=your@email.com
+
+# App config
+MAX_FAMILY_MEMBERS=5
+FACE_SIMILARITY_THRESHOLD=0.5
+```
+
+### 6. Run migrations
+
+```bash
+python manage.py migrate
+```
+
+### 7. Create a superuser (for admin panel)
+
+```bash
+python manage.py createsuperuser
+```
+
+### 8. Create your first device
+
+```bash
+python manage.py runserver
+```
+
+Open `http://localhost:8000/admin` and create a Device:
+
+| Field | Value |
+|-------|-------|
+| Device ID | `DOOR-001` (your product key) |
+| Name | `Front Door` |
+| IP Address | Your machine's local IP (e.g. `192.168.1.5`) |
+| Camera Source | `0` for laptop webcam, or full URL for IP camera |
+| Is Active | ✓ |
+
+### 9. Register your account
+
+Go to `http://localhost:8000/verify-device/` and enter your device ID. Follow the registration flow — enter name, email, password, upload a clear front-facing photo. First person to register on a device becomes the owner.
+
+---
+
+## Running the App
+
+```bash
+python manage.py runserver 0.0.0.0:8000
+```
+
+Access on your phone (same WiFi):
+```
+http://YOUR_MAC_IP:8000
+```
+
+Find your IP with:
+```bash
+ipconfig getifaddr en0   # Mac
+ip route get 1 | awk '{print $7}'  # Linux
+```
+
+---
+
+## Installing as PWA (Recommended)
+
+For push notifications and home screen install, you need HTTPS. Use ngrok:
+
+```bash
+brew install ngrok
+ngrok config add-authtoken YOUR_NGROK_TOKEN  # free at ngrok.com
+ngrok http 8000
+```
+
+Update `.env` with your ngrok URL:
+```
+CSRF_TRUSTED_ORIGINS=https://your-ngrok-url.ngrok-free.app
+```
+
+Restart Django, open the ngrok URL on your phone:
+- **Android**: Chrome → three dots → Add to Home Screen
+- **iPhone**: Safari → Share → Add to Home Screen
+
+---
+
+## Arduino Setup
+
+### Hardware
+
+```
+Arduino Pin 13 → Relay IN
+Relay COM      → Door Lock +
+Door Lock -    → Power Supply -
+Relay VCC      → 5V
+Relay GND      → GND
+```
+
+### Upload the sketch
+
+Open `assets/Arduino/sketch/sketch.ino` in Arduino IDE and upload to your Uno.
+
+### Configure the port
+
+Find your Arduino port:
+```bash
+ls /dev/tty.usb*    # Mac
+ls /dev/ttyACM*     # Linux
+```
+
+Update `.env`:
+```
+ARDUINO_PORT=/dev/tty.usbmodem1101
+```
+
+---
+
+## Camera Setup
+
+### Option 1 — Laptop webcam
+Set `camera_source` to `0` in admin. No other setup needed.
+
+### Option 2 — Phone as IP camera
+Install any of these on your phone:
+- **DroidCam** (Android/iOS) — `http://PHONE_IP:4747/video`
+- **IP Webcam** (Android) — `http://PHONE_IP:8080/video`
+- **AirDroid** (Android/iOS) — `http://PHONE_IP:4747/video`
+
+Set `camera_source` to the full URL in admin.
+
+---
+
+## Face Recognition
+
+VeriFace uses **InsightFace ArcFace (buffalo_l)** — the same model used in production security systems.
+
+- **Threshold**: 0.5 cosine similarity (configurable via `FACE_SIMILARITY_THRESHOLD` in `.env`)
+- **Embedding**: 512-dimensional vector stored as `.npy` file
+- **Processing rate**: 2 FPS (sufficient for door entry, CPU-friendly)
+- **M4 Mac**: Automatically uses Apple AMX acceleration via ONNX Runtime CPU provider
+
+**Tips for best accuracy:**
+- Upload a clear, front-facing photo in good lighting
+- Remove glasses or hats if possible
+- The model is robust to minor lighting changes after enrollment
+
+---
+
+## Security Notes
+
+- Product keys are required to register — strangers cannot create accounts on your device
+- QR codes are per-guest Fernet encrypted — a leaked QR compromises only that guest
+- QR codes are device-scoped — a QR from one door won't open another
+- All access attempts (granted and denied) are logged with timestamp
+- Face recognition runs only when a family member is logged in
+- VAPID keys are unique per deployment — rotate by regenerating and updating `.env`
+
+---
+
+## Environment Variables Reference
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SECRET_KEY` | Django secret key | Required |
+| `DEBUG` | Debug mode | `True` |
+| `ALLOWED_HOSTS` | Comma-separated allowed hosts | `*` |
+| `CSRF_TRUSTED_ORIGINS` | Trusted origins for CSRF | `http://localhost:8000` |
+| `DB_ENGINE` | `sqlite` or `postgresql` | `sqlite` |
+| `ARDUINO_PORT` | Serial port for Arduino | `/dev/tty.usbmodem1101` |
+| `ARDUINO_BAUDRATE` | Serial baudrate | `9600` |
+| `VAPID_PUBLIC_KEY` | Web Push public key | Required for push |
+| `VAPID_PRIVATE_KEY` | Web Push private key | Required for push |
+| `VAPID_CLAIMS_EMAIL` | Your email for VAPID | Required for push |
+| `MAX_FAMILY_MEMBERS` | Max users per device | `5` |
+| `FACE_SIMILARITY_THRESHOLD` | ArcFace match threshold (0-1) | `0.5` |
+
+---
+
+## Troubleshooting
+
+**Face recognition not starting after server restart**
+The app auto-restarts pipelines for devices with active sessions on startup. If it doesn't, log out and log back in.
+
+**Camera not opening**
+- Check `camera_source` in admin is set correctly (`0` for webcam, full URL for IP camera)
+- Mac: Python may need camera permission — System Settings → Privacy → Camera → allow Terminal/Python
+
+**Arduino not connecting**
+The app runs in simulation mode automatically if Arduino is not found. Check the port in `.env` matches your device.
+
+**Push notifications not working**
+- Must be on HTTPS (use ngrok for local development)
+- Grant notification permission in Chrome settings
+- Check VAPID keys are correctly set in `.env`
+- Delete existing push subscriptions from admin and re-subscribe
+
+**QR code not opening door**
+- Check QR hasn't expired
+- Make sure camera_source is correct and camera feed is live
+- QR codes are device-scoped — only work on the device they were generated for
+
+---
+
+## Data Flow Diagrams
+
+### Level 0 — Context Diagram
+
+```
+                    ┌─────────────────┐
+Face Photo ──────► │                 │ ◄──── Product Key
+Login Creds ─────► │                 │
+Manual Toggle ───► │   VERIFACE      │ ────► Live Feed
+                   │   SYSTEM        │ ────► Access Logs
+Family Member ◄──  │                 │ ────► Push Notifications
+                   │                 │ ────► Door Status
+                   └────────┬────────┘
+                            │
+          ┌─────────────────┼──────────────────┐
+          ▼                 ▼                  ▼
+    IP Camera          Arduino HW        Push Service
+    (video in)      (OPEN/CLOSE cmds)  (Google/Apple FCM)
+```
+
+### Level 1 — Internal Processes
+
+```
+Family Member
+     │
+     ├──[product key]──► 1.0 Authenticate ──► D1: Users & Profiles
+     │                        │
+     │                   [session token]
+     │
+     ├──[video stream]──► 2.0 Stream Camera ──► Browser
+     │
+     ├──[face frames]──► 3.0 Recognize Face ──► D2: Face Embeddings (.npy)
+     │                        │                 D3: Access Logs
+     │                   [match signal]
+     │
+     ├──[qr scan]──────► 4.0 Scan QR Code ──► D4: Guest QRs
+     │                        │                D3: Access Logs
+     │                   [valid signal]
+     │
+     ├──[manual tap]──► 5.0 Control Door ──► Arduino Hardware
+     │                       │               D3: Access Logs
+     │                  [door state]
+     │
+     └──[request]──────► 6.0 Manage Guests ──► D4: Guest QRs
+                              │
+                         [qr image]
+```
+
+---
+
+## Contributing
+
+Pull requests welcome. Key areas for improvement:
+
+- Multi-photo face enrollment (average embeddings from 3-5 photos)
+- P2P mode (no server, direct Arduino BLE control)
+- Face recognition confidence displayed in logs
+- Telegram/WhatsApp notification channel as alternative to Web Push
+- Docker compose for one-command deployment
+
+---
+
+## License
+
+MIT License — use freely, attribution appreciated.
+
+---
+
+## Built By
+
+Viral Kariya — Bachelor's Capstone Project  
+Rebuilt from scratch with clean architecture, InsightFace ArcFace, and production-grade patterns.
+
+> *"Your identity. Your door. VeriFace."*

@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="door-page">
+
+    <div class="door-button-wrapper {% if door_status == 'on' %}door-open{% endif %}"
+         id="door-wrapper">
+        <form method="POST" action="{% url 'door_control' %}">
+            {% csrf_token %}
+            <button type="submit"
+                    class="door-btn {% if door_status == 'on' %}open{% else %}closed{% endif %}"
+                    id="door-btn">
+                <!-- Door icon -->
+                <svg viewBox="0 0 24 24">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+                    <polyline points="9 22 9 12 15 12 15 22"/>
+                </svg>
+            </button>
+        </form>
+    </div>
+
+    <div class="door-info">
+        <div class="door-status-label" id="door-label"
+             style="color: {% if door_status == 'on' %}var(--success){% else %}var(--text-secondary){% endif %}">
+            Door is {% if door_status == 'on' %}Open{% else %}Closed{% endif %}
+        </div>
+        <div class="door-hint">
+            Tap to {% if door_status == 'on' %}close{% else %}open{% endif %}
+        </div>
+    </div>
+
+    <!-- Live status polling -->
+    <div style="font-family: var(--font-mono); font-size: 0.65rem;
+                color: var(--text-muted); letter-spacing: 0.08em;">
+        STATUS UPDATED · <span id="last-update">just now</span>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Poll door status every 3 seconds
+    setInterval(() => {
+        fetch("{% url 'door_status_api' %}")
+            .then(r => r.json())
+            .then(data => {
+                const label = document.getElementById('door-label');
+                const btn = document.getElementById('door-btn');
+                const wrapper = document.getElementById('door-wrapper');
+
+                if (data.status === 'on') {
+                    label.textContent = 'Door is Open';
+                    label.style.color = 'var(--success)';
+                    btn.className = 'door-btn open';
+                    wrapper.classList.add('door-open');
+                } else {
+                    label.textContent = 'Door is Closed';
+                    label.style.color = 'var(--text-secondary)';
+                    btn.className = 'door-btn closed';
+                    wrapper.classList.remove('door-open');
+                }
+
+                document.getElementById('last-update').textContent =
+                    new Date().toLocaleTimeString('en-IN', {hour12: false});
+            });
+    }, 3000);
+</script>
+{% endblock %}
