@@ -5,7 +5,11 @@ __pycache__/
 *.pyd
 db.sqlite3
 media/
-assets/
+assets/css/
+assets/js/
+assets/icons/
+assets/images/
+assets/admin/
 .DS_Store
 *.npy
 *.log
