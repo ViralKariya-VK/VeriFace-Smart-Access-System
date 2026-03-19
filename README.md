@@ -113,7 +113,7 @@ The system runs four independent background threads:
 
 ## Hardware Demo
 
-https://github.com/ViralKariya-VK/VeriFace-Smart-Access-System/static/images/Working.mp4
+https://github.com/user-attachments/assets/a58dff77-37c3-4e2e-bb75-64449179c435
 
 ---
 
