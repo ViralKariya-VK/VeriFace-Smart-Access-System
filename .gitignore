@@ -16,5 +16,4 @@ assets/admin/
 .vscode/
 *.sqlite3
 migrations/__pycache__/
-static/images/
 static/icons/icon-2048x2048.png
