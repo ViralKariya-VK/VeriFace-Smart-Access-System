@@ -5,11 +5,13 @@
 <div class="qr-container">
 
     {% if user.profile.is_owner %}
-    <div class="qr-form card">
+    <div class="card" style="margin-bottom: 16px;">
         <div style="font-family: var(--font-display); font-weight: 600;
-                    margin-bottom: 16px;">Generate Guest Access</div>
+                    margin-bottom: 20px; font-size: 1rem;">
+            New Guest Access
+        </div>
 
-        <form method="POST" style="display: flex; flex-direction: column; gap: 12px;">
+        <form method="POST" style="display: flex; flex-direction: column; gap: 20px;">
             {% csrf_token %}
 
             {% if messages %}
@@ -27,67 +29,112 @@
                 <label class="form-label">Guest Name</label>
                 <input class="form-input" type="text"
                        name="guest_name"
-                       placeholder="e.g. John (Plumber)">
+                       placeholder="e.g. John, Plumber, Delivery">
             </div>
 
-            <!-- Quick Duration -->
+            <!-- Duration Presets -->
             <div class="form-group">
-                <label class="form-label">Quick Duration (minutes only)</label>
-                <input class="form-input" type="number"
-                       name="quick_minutes"
-                       placeholder="e.g. 60 — leave blank to use extended below"
-                       min="1">
-            </div>
-
-            <!-- Divider -->
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <div style="flex:1; height:1px; background: var(--border);"></div>
-                <span style="font-family: var(--font-mono); font-size: 0.65rem;
-                             color: var(--text-muted); letter-spacing: 0.1em;">
-                    OR EXTENDED DURATION
-                </span>
-                <div style="flex:1; height:1px; background: var(--border);"></div>
-            </div>
-
-            <!-- Days / Hours / Minutes -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
-                <div class="form-group">
-                    <label class="form-label">Days</label>
-                    <input class="form-input" type="number"
-                           name="days" placeholder="0" min="0">
+                <label class="form-label">Duration</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr;
+                            gap: 8px; margin-bottom: 8px;">
+                    <button type="button" class="preset-btn duration-preset"
+                            data-minutes="30"
+                            onclick="setDuration(30, this)">
+                        30 min
+                    </button>
+                    <button type="button" class="preset-btn duration-preset"
+                            data-minutes="60"
+                            onclick="setDuration(60, this)">
+                        1 hour
+                    </button>
+                    <button type="button" class="preset-btn duration-preset"
+                            data-minutes="240"
+                            onclick="setDuration(240, this)">
+                        4 hours
+                    </button>
+                    <button type="button" class="preset-btn duration-preset"
+                            data-minutes="1440"
+                            onclick="setDuration(1440, this)">
+                        1 day
+                    </button>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Hours</label>
-                    <input class="form-input" type="number"
-                           name="hours" placeholder="0" min="0" max="23">
+
+                <!-- Custom duration — hidden by default -->
+                <div id="custom-duration" style="display: none;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+                        <div class="form-group">
+                            <label class="form-label">Days</label>
+                            <input class="form-input" type="number"
+                                   id="days-input" name="days"
+                                   placeholder="0" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Hours</label>
+                            <input class="form-input" type="number"
+                                   id="hours-input" name="hours"
+                                   placeholder="0" min="0" max="23">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Mins</label>
+                            <input class="form-input" type="number"
+                                   id="mins-input" name="minutes"
+                                   placeholder="0" min="0" max="59">
+                        </div>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Mins</label>
-                    <input class="form-input" type="number"
-                           name="minutes" placeholder="0" min="0" max="59">
-                </div>
+
+                <button type="button"
+                        onclick="toggleCustomDuration()"
+                        id="custom-duration-toggle"
+                        style="background: none; border: none;
+                               font-family: var(--font-mono); font-size: 0.68rem;
+                               color: var(--text-muted); cursor: pointer;
+                               letter-spacing: 0.08em; margin-top: 6px;
+                               text-decoration: underline;">
+                    SET CUSTOM DURATION
+                </button>
+
+                <!-- Hidden field for preset minutes -->
+                <input type="hidden" name="quick_minutes" id="quick-minutes-input">
             </div>
 
-            <!-- Divider -->
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <div style="flex:1; height:1px; background: var(--border);"></div>
-                <span style="font-family: var(--font-mono); font-size: 0.65rem;
-                             color: var(--text-muted); letter-spacing: 0.1em;">
-                    ACCESS LIMIT
-                </span>
-                <div style="flex:1; height:1px; background: var(--border);"></div>
-            </div>
-
-            <!-- Max Uses -->
+            <!-- Entry Limit -->
             <div class="form-group">
-                <label class="form-label">Max Uses (blank = unlimited)</label>
-                <input class="form-input" type="number"
-                       name="max_uses"
-                       placeholder="e.g. 1 = one-time, 5 = five entries"
-                       min="1">
+                <label class="form-label">Entry Limit</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                    <button type="button" class="preset-btn limit-preset"
+                            onclick="setLimit('1', this)">
+                        One Time
+                    </button>
+                    <button type="button" class="preset-btn limit-preset"
+                            onclick="setLimit('unlimited', this)">
+                        Unlimited
+                    </button>
+                </div>
+
+                <!-- Custom count — hidden by default -->
+                <div id="custom-limit" style="display: none; margin-top: 8px;">
+                    <input class="form-input" type="number"
+                           id="custom-limit-input"
+                           placeholder="Enter number of entries"
+                           min="1">
+                </div>
+
+                <button type="button"
+                        onclick="toggleCustomLimit()"
+                        style="background: none; border: none;
+                               font-family: var(--font-mono); font-size: 0.68rem;
+                               color: var(--text-muted); cursor: pointer;
+                               letter-spacing: 0.08em; margin-top: 6px;
+                               text-decoration: underline;">
+                    SET CUSTOM COUNT
+                </button>
+
+                <!-- Hidden field for limit -->
+                <input type="hidden" name="max_uses" id="max-uses-input">
             </div>
 
-            <button type="submit" class="btn btn-primary" style="margin-top: 4px;">
+            <button type="submit" class="btn btn-primary">
                 Generate QR Code
             </button>
         </form>
@@ -102,20 +149,16 @@
 
     <!-- Newly generated QR -->
     {% if new_guest %}
-    <div class="qr-image-wrapper fade-up">
+    <div class="qr-image-wrapper fade-up" style="margin-bottom: 16px;">
         <div style="font-family: var(--font-mono); font-size: 0.7rem;
                     color: var(--accent); letter-spacing: 0.1em;
-                    text-transform: uppercase; margin-bottom: 8px;">
-            QR Generated — {{ new_guest.name }}
+                    text-transform: uppercase; margin-bottom: 4px;">
+            QR Ready — {{ new_guest.name }}
         </div>
         <div style="font-family: var(--font-mono); font-size: 0.65rem;
-                    color: var(--text-muted); margin-bottom: 12px;">
+                    color: var(--text-muted); margin-bottom: 16px;">
             Expires {{ new_guest.expires_at|date:"d M Y · H:i" }}
-            {% if new_guest.max_uses %}
-             · {{ new_guest.max_uses }} use{{ new_guest.max_uses|pluralize }} only
-            {% else %}
-             · Unlimited uses
-            {% endif %}
+            · {% if new_guest.max_uses %}{{ new_guest.max_uses }} use{{ new_guest.max_uses|pluralize }}{% else %}Unlimited{% endif %}
         </div>
         <img src="{{ new_guest.qr_code.url }}" alt="QR Code">
         <a href="{{ new_guest.qr_code.url }}" download
@@ -126,13 +169,13 @@
     </div>
     {% endif %}
 
-    <!-- Active Guests List -->
+    <!-- Active Guests -->
     {% if guests %}
     <div>
         <div style="font-family: var(--font-mono); font-size: 0.7rem;
                     color: var(--text-muted); letter-spacing: 0.1em;
                     text-transform: uppercase; margin-bottom: 12px;">
-            Guests ({{ guests.count }})
+            Active Guests ({{ guests.count }})
         </div>
 
         <div class="guest-list">
@@ -141,15 +184,15 @@
                 <div style="flex: 1;">
                     <div class="guest-name">{{ guest.name }}</div>
                     <div class="guest-expiry font-mono">
-                        Expires {{ guest.expires_at|date:"d M Y · H:i" }}
+                        {{ guest.expires_at|date:"d M Y · H:i" }}
                     </div>
                     <div class="guest-expiry font-mono" style="margin-top: 2px;">
                         {% if guest.max_uses %}
                             {{ guest.uses_remaining }}/{{ guest.max_uses }} uses left
                         {% else %}
-                            Unlimited uses
+                            Unlimited
                         {% endif %}
-                        · Used {{ guest.use_count }} time{{ guest.use_count|pluralize }}
+                        · Used {{ guest.use_count }}×
                     </div>
                 </div>
 
@@ -179,4 +222,117 @@
     {% endif %}
 
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let selectedDurationMinutes = null;
+    let selectedLimit = null;
+
+    // ── Duration Presets ──────────────────────
+    function setDuration(minutes, btn) {
+        // Deselect all preset buttons
+        document.querySelectorAll('.duration-preset').forEach(b => {
+            b.classList.remove('active');
+        });
+        btn.classList.add('active');
+        selectedDurationMinutes = minutes;
+
+        // Set hidden field and clear custom fields
+        document.getElementById('quick-minutes-input').value = minutes;
+        document.getElementById('days-input').value = '';
+        document.getElementById('hours-input').value = '';
+        document.getElementById('mins-input').value = '';
+
+        // Hide custom duration if a preset is selected
+        document.getElementById('custom-duration').style.display = 'none';
+        document.getElementById('custom-duration-toggle').textContent = 'SET CUSTOM DURATION';
+    }
+
+    function toggleCustomDuration() {
+        const el = document.getElementById('custom-duration');
+        const toggle = document.getElementById('custom-duration-toggle');
+        const isHidden = el.style.display === 'none';
+
+        if (isHidden) {
+            el.style.display = 'block';
+            toggle.textContent = 'HIDE CUSTOM DURATION';
+            // Clear preset selection when using custom
+            document.querySelectorAll('.duration-preset').forEach(b => {
+                b.classList.remove('active');
+            });
+            document.getElementById('quick-minutes-input').value = '';
+        } else {
+            el.style.display = 'none';
+            toggle.textContent = 'SET CUSTOM DURATION';
+        }
+    }
+
+    // ── Entry Limit ───────────────────────────
+    function setLimit(value, btn) {
+        document.querySelectorAll('.limit-preset').forEach(b => {
+            b.classList.remove('active');
+        });
+        btn.classList.add('active');
+        selectedLimit = value;
+
+        if (value === 'unlimited') {
+            document.getElementById('max-uses-input').value = '';
+        } else {
+            document.getElementById('max-uses-input').value = value;
+        }
+
+        // Hide custom limit
+        document.getElementById('custom-limit').style.display = 'none';
+        document.getElementById('custom-limit-input').value = '';
+    }
+
+    function toggleCustomLimit() {
+        const el = document.getElementById('custom-limit');
+        const isHidden = el.style.display === 'none';
+
+        if (isHidden) {
+            el.style.display = 'block';
+            // Clear preset selection
+            document.querySelectorAll('.limit-preset').forEach(b => {
+                b.classList.remove('active');
+            });
+            // Sync custom input to hidden field on change
+            document.getElementById('custom-limit-input').addEventListener('input', function() {
+                document.getElementById('max-uses-input').value = this.value;
+            });
+        } else {
+            el.style.display = 'none';
+            document.getElementById('max-uses-input').value = '';
+        }
+    }
+</script>
+
+<!-- Preset button styles -->
+<style>
+    .preset-btn {
+        padding: 10px;
+        background: var(--bg-elevated);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        color: var(--text-secondary);
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+        letter-spacing: 0.06em;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-align: center;
+    }
+
+    .preset-btn:hover {
+        border-color: var(--border-bright);
+        color: var(--text-primary);
+    }
+
+    .preset-btn.active {
+        background: var(--accent-dim);
+        border-color: var(--accent);
+        color: var(--accent);
+    }
+</style>
 {% endblock %}
