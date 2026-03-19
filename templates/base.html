@@ -10,6 +10,8 @@
     <title>VeriFace</title>
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     <link rel="manifest" href="{% static 'manifest.json' %}">
+    <link rel="icon" type="image/png" href="{% static 'icons/icon-192x192.png' %}">
+    <link rel="apple-touch-icon" href="{% static 'icons/icon-192x192.png' %}">
 </head>
 <body>
 
@@ -105,6 +107,20 @@
             </a>
         </nav>
     </footer>
+
+    {% comment %} Checking for the Notifications {% endcomment %}
+
+    {% comment %} {% if user.is_authenticated %}
+        <button onclick="setupPushNotifications()"
+                style="position:fixed; bottom: 80px; right: 16px; z-index:9999;
+                    background: var(--accent); color: var(--bg-base);
+                    border: none; padding: 10px 16px; border-radius: 8px;
+                    font-family: var(--font-mono); font-size: 0.75rem;
+                    letter-spacing: 0.08em; cursor: pointer;">
+            🔔 Enable Alerts
+        </button>
+    {% endif %} {% endcomment %}
+
 </div>
 
 <script src="{% static 'js/app.js' %}"></script>
@@ -113,7 +129,14 @@
 <script>
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js')
-            .then(reg => console.log('✅ SW registered, scope:', reg.scope))
+            .then(reg => {
+                console.log('✅ SW registered, scope:', reg.scope);
+                return navigator.serviceWorker.ready;
+            })
+            .then(() => {
+                // SW is active — now safe to subscribe
+                setupPushNotifications();
+            })
             .catch(e => console.log('❌ SW failed:', e));
     }
 </script>

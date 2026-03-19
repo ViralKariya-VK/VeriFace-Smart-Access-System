@@ -28,21 +28,39 @@ class DoorController:
         self._connect()
 
     def _connect(self):
-        """Try to connect to Arduino. Fall back to simulation if not available."""
+        import subprocess
+        import glob
+
         port = settings.ARDUINO_PORT
-        baudrate = settings.ARDUINO_BAUDRATE
+
+        # Auto-detect if port not set or doesn't exist
+        # Why auto-detect? Arduino port changes between USB ports and machines
+        # This makes the app work on any machine without manual .env changes
+        if not port or port == 'auto':
+            # Try common patterns on Mac/Linux
+            candidates = (
+                glob.glob('/dev/tty.usbserial*') +
+                glob.glob('/dev/tty.usbmodem*') +
+                glob.glob('/dev/ttyACM*') +      # Linux
+                glob.glob('/dev/ttyUSB*')         # Linux
+            )
+            if candidates:
+                port = candidates[0]
+                print(f"Auto-detected Arduino on {port}")
+            else:
+                print("No Arduino found — running in simulation mode")
+                self.serial = None
+                return
 
         try:
             import serial
-            self.serial = serial.Serial(port, baudrate, timeout=1)
-            time.sleep(2)  # Arduino resets on serial connect — wait for it to boot
+            self.serial = serial.Serial(port, settings.ARDUINO_BAUDRATE, timeout=1)
+            time.sleep(2)
             print(f"Arduino connected on {port}")
         except Exception as e:
-            # This is expected during development without hardware
-            # In production, you'd want to alert here
             print(f"Arduino not found on {port} — running in simulation mode")
-            print(f"   Door commands will be printed to terminal instead")
             self.serial = None
+
 
     @property
     def is_simulation(self):

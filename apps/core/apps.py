@@ -27,60 +27,23 @@ class CoreConfig(AppConfig):
         threading.Thread(target=self._delayed_start, daemon=True).start()
 
     def _delayed_start(self):
-        time.sleep(5)
-        print("Starting VeriFace background services...")
+        time.sleep(3)
+        print("🚀 Starting VeriFace background services...")
+
+        # Run startup cleanup first
+        from django.core.management import call_command
+        call_command('startup_cleanup')
 
         from apps.camera.manager import camera_manager
         from apps.guest.scanner import start_qr_scanners
 
         camera_manager.start_all_cameras()
         camera_manager.ready.wait(timeout=30)
-        print("Cameras initialized")
+        print("📸 Cameras initialized")
 
         start_qr_scanners()
-        print("QR scanners started")
+        print("🔍 QR scanners started")
 
-        # Auto-restart pipelines for devices that have active sessions
-        # Why: if server restarts while users are logged in,
-        # they shouldn't have to logout/login just to restart face recognition
-        self._restart_active_pipelines()
-
-        print("All background services running")
-
-    def _restart_active_pipelines(self):
-        """
-        Find all devices that have logged-in users with active sessions
-        and restart their recognition pipelines automatically.
-        """
-        try:
-            from django.contrib.sessions.models import Session
-            from django.utils import timezone
-            from apps.core.models import Profile
-            from apps.recognition.pipeline import start_pipeline
-
-            active_sessions = Session.objects.filter(
-                expire_date__gt=timezone.now()
-            )
-
-            device_ids_to_start = set()
-
-            for session in active_sessions:
-                data = session.get_decoded()
-                user_id = data.get('_auth_user_id')
-                if not user_id:
-                    continue
-                try:
-                    profile = Profile.objects.get(user__id=user_id)
-                    device_ids_to_start.add(profile.device.device_id)
-                except Profile.DoesNotExist:
-                    continue
-
-            for device_id in device_ids_to_start:
-                start_pipeline(device_id)
-                print(f"Auto-restarted pipeline for device {device_id}")
-
-            if not device_ids_to_start:
-                print("No active sessions — pipelines idle")
-
-        except Exception as e:
-            print(f"⚠️Could not auto-restart pipelines: {e}")
+        # No need to auto-restart pipelines anymore
+        # Users will log in fresh and pipelines start on login
+        print("✅ All background services running")

@@ -36,36 +36,68 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 async function setupPushNotifications() {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        console.log('Push not supported');
+        return;
+    }
 
     try {
+        // Get VAPID public key
         const keyRes = await fetch('/api/push/vapid-key/');
         const { public_key } = await keyRes.json();
 
         const reg = await navigator.serviceWorker.ready;
 
+        // Request permission
         const permission = await Notification.requestPermission();
-        if (permission !== 'granted') return;
+        if (permission !== 'granted') {
+            console.log('Notification permission denied');
+            return;
+        }
 
-        // Always unsubscribe old and create fresh
-        // This handles ngrok URL changes automatically
+        // Always unsubscribe first then resubscribe
+        // Handles ngrok URL changes and stale subscriptions automatically
         const existing = await reg.pushManager.getSubscription();
-        if (existing) await existing.unsubscribe();
+        if (existing) {
+            await existing.unsubscribe();
+        }
 
+        // Create fresh subscription
         const subscription = await reg.pushManager.subscribe({
             userVisibleOnly: true,
             applicationServerKey: urlBase64ToUint8Array(public_key)
         });
 
-        await fetch('/api/push/subscribe/', {
+        // Save to server
+        const res = await fetch('/api/push/subscribe/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(subscription.toJSON())
         });
-
-        console.log('✅ Push subscription refreshed');
+        const data = await res.json();
+        console.log('✅ Push subscription saved:', data);
 
     } catch(e) {
-        console.error('Push setup failed:', e.message);
+        console.error('❌ Push setup failed:', e.message);
     }
+}
+
+
+// ── Service Worker Registration ───────────────
+// Register SW then immediately subscribe once it's ready
+// Why chain .then() instead of setTimeout?
+// setTimeout is an arbitrary delay — SW might not be ready in time.
+// navigator.serviceWorker.ready is a promise that resolves only when
+// SW is fully active — guaranteed timing, no race condition.
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js')
+        .then(reg => {
+            console.log('✅ SW registered, scope:', reg.scope);
+            return navigator.serviceWorker.ready;
+        })
+        .then(() => {
+            // SW is definitely active — safe to subscribe now
+            setupPushNotifications();
+        })
+        .catch(e => console.log('❌ SW registration failed:', e));
 }

@@ -6,6 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Profile — VeriFace</title>
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="icon" type="image/png" href="{% static 'icons/icon-192x192.png' %}">
+    <link rel="apple-touch-icon" href="{% static 'icons/icon-192x192.png' %}">
+    <script src="{% static 'js/app.js' %}"></script>
 </head>
 <body>
 <div class="profile-page">
@@ -63,6 +66,17 @@
             </span>
         </div>
 
+        <div class="profile-row fade-up">
+            <span class="profile-row-label">Notifications</span>
+            <button onclick="setupPushNotifications()"
+                    style="background: var(--accent-dim); color: var(--accent);
+                        border: 1px solid var(--accent); border-radius: var(--radius-sm);
+                        padding: 6px 14px; font-family: var(--font-mono);
+                        font-size: 0.7rem; letter-spacing: 0.08em; cursor: pointer;">
+                ENABLE
+            </button>
+        </div>
+
         <div class="fade-up" style="margin-top: auto; padding-top: 16px;">
             <form method="POST" action="{% url 'logout' %}">
                 {% csrf_token %}
@@ -74,4 +88,12 @@
     </div>
 </div>
 </body>
+<script>
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js')
+        .then(reg => navigator.serviceWorker.ready)
+        .then(() => setupPushNotifications())
+        .catch(e => console.log('SW failed:', e));
+}
+</script>
 </html>
