@@ -37,6 +37,16 @@ def start_pipeline(device_id):
         print(f"🚀 Recognition pipeline started for device {device_id}")
 
 
+def start_all_pipelines():
+    """
+    Start recognition for every active device. Called once at boot so the door
+    works after a power cut or reboot without anyone having to log in first.
+    """
+    from apps.core.models import Device
+    for device in Device.objects.filter(is_active=True):
+        start_pipeline(device.device_id)
+
+
 def stop_pipeline(device_id):
     """
     Stop recognition pipeline for a device.
@@ -55,7 +65,7 @@ def stop_pipeline(device_id):
             print(f"🛑 Recognition pipeline stopped for device {device_id}")
 
 
-def _load_device_embeddings(device_id):
+def _load_device_embeddings(device_id, quiet=False):
     """
     Load all enrolled face embeddings for a device.
     Returns list of (profile_id, embedding_array) tuples.
@@ -78,7 +88,8 @@ def _load_device_embeddings(device_id):
         try:
             embedding = np.load(profile.face_embedding.path)
             embeddings.append((profile.id, embedding))
-            print(f"📦 Loaded embedding for {profile.user.username}")
+            if not quiet:
+                print(f"📦 Loaded embedding for {profile.user.username}")
         except Exception as e:
             print(f"⚠️  Could not load embedding for {profile.user.username}: {e}")
 
@@ -121,29 +132,34 @@ def _save_access_log(device_id, profile_id, access_granted, face_image_array):
 
 
 def _send_camera_alert(device_id, status):
-    """
-    Send push notification when camera is blocked or offline.
-    Notifies all profiles linked to this device.
-    """
-    from apps.core.models import Device, PushSubscription
-    from apps.notifications.push import send_push_to_subscription
+    """Alert every member of the device that the camera is blocked or offline."""
+    from apps.notifications.push import send_push_to_device
+
+    message = {
+        'blocked': '⚠️ Your door camera appears to be blocked!',
+        'offline': '⚠️ Your door camera is offline!'
+    }.get(status, '⚠️ Camera issue detected')
 
     try:
-        device = Device.objects.get(device_id=device_id)
-        subscriptions = PushSubscription.objects.filter(
-            profile__device=device
-        )
-
-        message = {
-            'blocked': '⚠️ Your door camera appears to be blocked!',
-            'offline': '⚠️ Your door camera is offline!'
-        }.get(status, '⚠️ Camera issue detected')
-
-        for sub in subscriptions:
-            send_push_to_subscription(sub, message)
-
+        send_push_to_device(device_id, message)
     except Exception as e:
         print(f"❌ Could not send camera alert: {e}")
+
+
+def _unknown_alerts_enabled(device_id):
+    from apps.core.models import Device
+    try:
+        return Device.objects.get(device_id=device_id).alert_unknown
+    except Exception:
+        return False
+
+
+def _send_unknown_alert(device_id):
+    from apps.notifications.push import send_push_to_device
+    try:
+        send_push_to_device(device_id, "👤 Unknown person at your door")
+    except Exception as e:
+        print(f"❌ Could not send unknown-visitor alert: {e}")
 
 
 def _pipeline_loop(device_id, stop_event):
@@ -173,8 +189,14 @@ def _pipeline_loop(device_id, stop_event):
 
     threshold = settings.FACE_SIMILARITY_THRESHOLD
 
+    last_reload_time = time.time()
+    reload_interval = 30      # Pick up newly enrolled family members without a restart
     last_open_time = 0        # Timestamp of last door open
     cooldown = 10             # Seconds before door can open again
+    last_unknown_time = 0     # Throttle unknown-visitor alerts
+    last_unknown_embedding = None
+    unknown_cooldown = 20           # seconds between alerts for different faces
+    unknown_same_person_window = 180  # a lingering visitor stays "the same visit"
     last_alert_time = 0       # Throttle camera alerts
     alert_cooldown = 60       # Only alert once per minute
 
@@ -182,6 +204,10 @@ def _pipeline_loop(device_id, stop_event):
 
     while not stop_event.is_set():
         time.sleep(0.5)  # 2 FPS — intentional, see docstring above
+
+        if time.time() - last_reload_time > reload_interval:
+            last_reload_time = time.time()
+            stored_embeddings = _load_device_embeddings(device_id, quiet=True)
 
         frame = camera_manager.get_frame(device_id)
 
@@ -221,7 +247,7 @@ def _pipeline_loop(device_id, stop_event):
             continue
 
         # Run face recognition
-        matched_profile_id, bbox, face_image = face_engine.recognize(
+        matched_profile_id, bbox, face_image, unknown = face_engine.recognize(
             frame,
             stored_embeddings,
             threshold=threshold
@@ -257,13 +283,33 @@ def _pipeline_loop(device_id, stop_event):
                 daemon=True
             ).start()
 
-        # Uncomment below if you want to log denied faces too
-        # Be careful — this will fill your DB fast in a busy area
-        # elif face_detected_but_no_match:
-        #     threading.Thread(
-        #         target=_save_access_log,
-        #         args=(device_id, None, False, face_image),
-        #         daemon=True
-        #     ).start()
+        elif unknown is not None and stored_embeddings:
+            # An unrecognised face. Log it and alert — but not on every frame:
+            # the same person standing at the door must produce one alert, and
+            # a busy doorway must not flood anyone's phone.
+            now = time.time()
+            u_image, u_embedding = unknown
+            same_person = (
+                last_unknown_embedding is not None
+                and now - last_unknown_time < unknown_same_person_window
+                and face_engine.compare(u_embedding, last_unknown_embedding) > 0.5
+            )
+            if not same_person and now - last_unknown_time >= unknown_cooldown:
+                if _unknown_alerts_enabled(device_id):
+                    last_unknown_time = now
+                    last_unknown_embedding = u_embedding
+                    print("❓ Unknown face at the door")
+                    threading.Thread(
+                        target=_save_access_log,
+                        args=(device_id, None, False, u_image),
+                        daemon=True
+                    ).start()
+                    threading.Thread(
+                        target=_send_unknown_alert,
+                        args=(device_id,),
+                        daemon=True
+                    ).start()
+            elif same_person:
+                last_unknown_time = now  # still standing there — keep the window open
 
     print(f"✅ Pipeline loop exited cleanly for device {device_id}")

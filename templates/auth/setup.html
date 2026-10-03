@@ -1,0 +1,92 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup — VeriFace</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="icon" type="image/png" href="{% static 'icons/icon-192x192.png' %}">
+</head>
+<body>
+<div class="auth-page">
+
+    <div class="auth-hero">
+        <div class="auth-hero-icon">
+            <svg viewBox="0 0 24 24">
+                <path d="M23 7l-7 5 7 5V7z"/>
+                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+            </svg>
+        </div>
+        <div class="auth-title fade-up">Set Up Your Door</div>
+        <div class="auth-subtitle fade-up">connect your camera</div>
+    </div>
+
+    <div class="auth-body">
+        <form method="POST" style="display: flex; flex-direction: column; gap: 14px;">
+            {% csrf_token %}
+
+            {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                <div class="message {{ message.tags }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="form-group fade-up fade-up-1">
+                <label class="form-label">Door Name</label>
+                <input class="form-input" type="text" name="name" value="Front Door">
+            </div>
+
+            <div class="form-group fade-up fade-up-2">
+                <label class="form-label">Camera Source</label>
+                <input class="form-input" type="text" name="camera_source" id="camera_source"
+                       placeholder="rtsp://user:pass@192.168.1.20:554/stream1"
+                       autocomplete="off" autocapitalize="off" spellcheck="false">
+                <div style="font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-muted); margin-top: 8px; line-height: 1.7;">
+                    CCTV / IP cam: <code>rtsp://user:pass@IP:554/stream1</code><br>
+                    Phone app: <code>http://PHONE_IP:8080/video</code><br>
+                    USB webcam: <code>0</code>
+                </div>
+            </div>
+
+            <div class="fade-up fade-up-3">
+                <button type="button" class="btn btn-ghost" id="test-btn">Test Camera</button>
+                <div id="test-result" style="margin-top: 12px; font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted);"></div>
+            </div>
+
+            <div class="fade-up fade-up-4" style="margin-top: 8px;">
+                <button type="submit" class="btn btn-primary">Create &amp; Continue</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.getElementById('test-btn').addEventListener('click', async () => {
+    const out = document.getElementById('test-result');
+    const btn = document.getElementById('test-btn');
+    const src = document.getElementById('camera_source').value.trim();
+    if (!src) { out.textContent = 'Enter a camera source first.'; return; }
+    btn.disabled = true; out.textContent = 'Connecting… (up to 10 s)';
+    const body = new URLSearchParams({camera_source: src});
+    try {
+        const res = await fetch("{% url 'setup_test_camera' %}", {
+            method: 'POST',
+            headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value},
+            body,
+        });
+        if ((res.headers.get('content-type') || '').startsWith('image/')) {
+            const url = URL.createObjectURL(await res.blob());
+            out.innerHTML = '<div style="color:#2ecc71;margin-bottom:8px">Camera works ✓</div>' +
+                `<img src="${url}" style="width:100%;border-radius:8px">`;
+        } else {
+            out.textContent = (await res.json()).error || 'Camera test failed.';
+        }
+    } catch (e) { out.textContent = 'Test failed: ' + e; }
+    btn.disabled = false;
+});
+</script>
+</body>
+</html>

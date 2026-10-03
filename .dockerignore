@@ -1,0 +1,12 @@
+.git
+.env
+.vscode
+**/__pycache__
+*.pyc
+db.sqlite3
+media/
+assets/
+.secret_key
+.vapid_keys
+*.md
+!README.md

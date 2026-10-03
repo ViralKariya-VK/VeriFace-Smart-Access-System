@@ -1,13 +1,12 @@
 {% for log in access_logs %}
-<div class="log-card fade-up">
+<div class="log-card fade-up {% if not log.access_granted %}log-card-denied{% endif %}">
 
     {% if log.image %}
-        <img class="log-photo" src="{{ log.image.url }}" alt="">
+        <a href="{{ log.image.url }}" target="_blank" rel="noopener" style="display:block;">
+            <img class="log-photo" src="{{ log.image.url }}" alt="" loading="lazy">
+        </a>
     {% else %}
-        <div class="log-photo"
-             style="background: var(--bg-elevated);
-                    border-radius: var(--radius-sm);
-                    display: flex; align-items: center; justify-content: center;">
+        <div class="log-photo log-photo-empty">
             <svg width="20" height="20" viewBox="0 0 24 24"
                  fill="none" stroke="var(--text-muted)" stroke-width="1.5">
                 <circle cx="12" cy="8" r="4"/>
@@ -22,6 +21,8 @@
                 {{ log.profile.user.username }}
             {% elif log.access_type == 'qr' %}
                 Guest (QR)
+            {% elif log.access_type == 'face' and not log.access_granted %}
+                Unknown person
             {% else %}
                 Unknown
             {% endif %}

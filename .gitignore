@@ -17,3 +17,4 @@ assets/admin/
 *.sqlite3
 migrations/__pycache__/
 static/icons/icon-2048x2048.png
+dist/

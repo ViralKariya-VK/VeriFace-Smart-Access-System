@@ -62,20 +62,28 @@
         <div class="profile-row fade-up fade-up-4">
             <span class="profile-row-label">Members</span>
             <span class="profile-row-value font-mono">
-                {{ user.profile.device.member_count }} / 5
+                {{ user.profile.device.member_count }} / {{ user.profile.device.max_members }}
             </span>
         </div>
 
         <div class="profile-row fade-up">
             <span class="profile-row-label">Notifications</span>
-            <button onclick="setupPushNotifications()"
+            <button id="notif-btn" onclick="if (window.VeriFaceApp) { VeriFaceApp.openSettings(); } else { setupPushNotifications(); }"
                     style="background: var(--accent-dim); color: var(--accent);
                         border: 1px solid var(--accent); border-radius: var(--radius-sm);
                         padding: 6px 14px; font-family: var(--font-mono);
                         font-size: 0.7rem; letter-spacing: 0.08em; cursor: pointer;">
                 ENABLE
             </button>
+            <script>if (window.VeriFaceApp) document.getElementById('notif-btn').textContent = 'APP SETTINGS';</script>
         </div>
+
+        {% if user.profile.is_owner %}
+        <a href="{% url 'manage' %}" class="profile-row fade-up" style="text-decoration: none;">
+            <span class="profile-row-label">Manage door</span>
+            <span class="profile-row-value" style="color: var(--accent);">Camera · Members · Alerts →</span>
+        </a>
+        {% endif %}
 
         <div class="fade-up" style="margin-top: auto; padding-top: 16px;">
             <form method="POST" action="{% url 'logout' %}">

@@ -1,0 +1,58 @@
+# VeriFace — one-command home install.
+#
+#   docker compose up -d                       # app on http://<this-machine>:8000
+#   docker compose --profile tunnel up -d      # + free public HTTPS URL (Cloudflare)
+#   docker compose logs cloudflared | grep trycloudflare.com    # find that URL
+#
+# All settings are optional — see .env.example.
+
+services:
+  veriface:
+    build: .
+    image: veriface:latest
+    restart: unless-stopped
+    ports:
+      - "${VERIFACE_PORT:-8000}:8000"
+    volumes:
+      - veriface-data:/data
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DEBUG: "false"
+      # Set these to skip the web setup wizard:
+      # CAMERA_SOURCE: rtsp://user:pass@192.168.1.20:554/stream1
+      # DEVICE_NAME: Front Door
+    # --- Linux hosts only: USB webcam / Arduino lock controller ---------------
+    # devices:
+    #   - /dev/video0:/dev/video0
+    #   - /dev/ttyACM0:/dev/ttyACM0
+    # group_add:
+    #   - dialout
+    #   - video
+
+  # Public HTTPS access without opening any router ports (profile: tunnel).
+  # Quick mode needs no account; the *.trycloudflare.com URL changes if it restarts.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    profiles: ["tunnel"]
+    restart: unless-stopped
+    depends_on:
+      - veriface
+    command: tunnel --no-autoupdate --url http://veriface:8000
+
+  # Permanent URL (profile: tunnel-named): create a tunnel in the Cloudflare
+  # Zero Trust dashboard, point it at http://veriface:8000, put its token in
+  # .env as TUNNEL_TOKEN, then: docker compose --profile tunnel-named up -d
+  cloudflared-named:
+    image: cloudflare/cloudflared:latest
+    profiles: ["tunnel-named"]
+    restart: unless-stopped
+    depends_on:
+      - veriface
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:-}
+    command: tunnel --no-autoupdate run
+
+volumes:
+  veriface-data:

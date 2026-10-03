@@ -1,10 +1,18 @@
 # apps/camera/manager.py
 
+import os
 import cv2
 import threading
 import numpy as np
 import time
 from django.utils import timezone
+
+# RTSP over TCP is far more reliable than UDP on home Wi-Fi (no smeared frames,
+# no silent packet loss). Must be set before the first VideoCapture is created.
+os.environ.setdefault(
+    'OPENCV_FFMPEG_CAPTURE_OPTIONS',
+    'rtsp_transport;tcp|fflags;nobuffer|flags;low_delay|stimeout;5000000',
+)
 
 
 class CameraManager:
@@ -52,27 +60,29 @@ class CameraManager:
 
         self.ready.set()
 
+    @staticmethod
+    def _open_capture(source):
+        """Open a webcam index, MJPEG/HTTP URL, RTSP URL or video file."""
+        cap_source = int(source) if str(source).isdigit() else source
+        cap = cv2.VideoCapture(cap_source)
+        if cap.isOpened():
+            # Keep only the newest frame so recognition never works on stale video
+            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        return cap
+
     def start_camera(self, device_id, source):
+        """
+        Register a camera and start its reader thread.
+
+        The thread owns opening and re-opening the stream, so a camera that is
+        off when the server boots (or drops later) comes back on its own.
+        """
         if device_id in self.cameras:
             return True
 
-        # Support both local webcam index and IP stream URL
-        if str(source).isdigit():
-            cap_source = int(source)
-            print(f"📷 Local webcam index {cap_source} for device {device_id}")
-        else:
-            cap_source = source
-            print(f"📷 IP stream for device {device_id}")
-
-        cap = cv2.VideoCapture(cap_source)
-
-        if not cap.isOpened():
-            print(f"❌ Could not open camera for device {device_id}")
-            self._update_device_status(device_id, 'offline')
-            return False
-
+        print(f"📷 Starting camera for device {device_id}")
         self.cameras[device_id] = {
-            'cap': cap,
+            'source': source,
             'lock': threading.Lock(),
             'last_frame': None,
             'low_variance_count': 0,
@@ -84,39 +94,70 @@ class CameraManager:
             daemon=True
         )
         thread.start()
-        print(f"✅ Camera started for device {device_id}")
         return True
 
+    def restart_camera(self, device_id, source):
+        """Switch a device to a new source (used when settings change)."""
+        camera_data = self.cameras.pop(device_id, None)
+        if camera_data:
+            camera_data['stop'] = True
+        return self.start_camera(device_id, source)
+
     def _reader_thread(self, device_id):
-        """Continuously reads frames and stores the latest one"""
+        """Continuously reads frames and stores the latest one, reconnecting as needed"""
         camera_data = self.cameras[device_id]
-        cap = camera_data['cap']
+        backoff = 1
 
-        while True:
-            ret, frame = cap.read()
+        while not camera_data.get('stop'):
+            cap = self._open_capture(camera_data['source'])
 
-            if not ret or frame is None:
+            if not cap.isOpened():
+                print(f"❌ Could not open camera for device {device_id} — retrying in {backoff}s")
                 self._update_device_status(device_id, 'offline')
-                time.sleep(1)
+                cap.release()
+                time.sleep(backoff)
+                backoff = min(backoff * 2, 30)
                 continue
 
-            # Blocked camera detection — check brightness variance
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            std_dev = np.std(gray)
+            print(f"✅ Camera connected for device {device_id}")
+            backoff = 1
+            failures = 0
 
-            if std_dev < 8:
-                # Low variance — could be blocked or covered
-                camera_data['low_variance_count'] += 1
-                if camera_data['low_variance_count'] >= 10:
-                    # 10 consecutive low-variance frames = blocked
-                    self._update_device_status(device_id, 'blocked')
-            else:
-                # Normal frame — reset counter and mark online
-                camera_data['low_variance_count'] = 0
-                self._update_device_status(device_id, 'online')
+            while not camera_data.get('stop'):
+                ret, frame = cap.read()
 
+                if not ret or frame is None:
+                    failures += 1
+                    self._update_device_status(device_id, 'offline')
+                    if failures >= 5:
+                        break  # reconnect from scratch
+                    time.sleep(0.5)
+                    continue
+
+                failures = 0
+
+                # Blocked camera detection — check brightness variance
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                std_dev = np.std(gray)
+
+                if std_dev < 8:
+                    # Low variance — could be blocked or covered
+                    camera_data['low_variance_count'] += 1
+                    if camera_data['low_variance_count'] >= 10:
+                        # 10 consecutive low-variance frames = blocked
+                        self._update_device_status(device_id, 'blocked')
+                else:
+                    # Normal frame — reset counter and mark online
+                    camera_data['low_variance_count'] = 0
+                    self._update_device_status(device_id, 'online')
+
+                with camera_data['lock']:
+                    camera_data['last_frame'] = frame
+
+            cap.release()
             with camera_data['lock']:
-                camera_data['last_frame'] = frame
+                camera_data['last_frame'] = None  # never serve a frozen frame
+            time.sleep(1)
 
     def get_frame(self, device_id):
         """Get the latest frame for a device — used by recognition, QR scanner, live feed"""

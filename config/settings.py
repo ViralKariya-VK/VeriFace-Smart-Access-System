@@ -15,13 +15,40 @@ from decouple import config
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = config('SECRET_KEY')
+# Everything that must survive a restart (database, uploads, generated secrets)
+# lives under DATA_DIR. In Docker this is a mounted volume at /data.
+DATA_DIR = Path(config('DATA_DIR', default=str(BASE_DIR)))
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-DEBUG = config('DEBUG', default=True, cast=bool)
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='*').split(',')
+def _persistent_secret(env_name, filename, generator):
+    """
+    Use the env var if set, otherwise generate a value once and keep it in
+    DATA_DIR so a fresh install works with zero configuration.
+    """
+    value = config(env_name, default='')
+    if value:
+        return value
+    path = DATA_DIR / filename
+    if path.exists():
+        return path.read_text().strip()
+    value = generator()
+    path.write_text(value)
+    path.chmod(0o600)
+    return value
 
-CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='').split(',')
+
+def _generate_secret_key():
+    from django.core.management.utils import get_random_secret_key
+    return get_random_secret_key()
+
+
+SECRET_KEY = _persistent_secret('SECRET_KEY', '.secret_key', _generate_secret_key)
+
+# Safe by default — set DEBUG=True in .env for local development only
+DEBUG = config('DEBUG', default=False, cast=bool)
+
+ALLOWED_HOSTS = [h.strip() for h in config('ALLOWED_HOSTS', default='*').split(',') if h.strip()]
 
 
 INSTALLED_APPS = [
@@ -42,6 +69,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -90,7 +118,7 @@ else:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
+            'NAME': DATA_DIR / 'db.sqlite3',
         }
     }
 
@@ -102,6 +130,8 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
+LOGIN_URL = 'login'
+
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'Asia/Kolkata'
 USE_I18N = True
@@ -112,9 +142,13 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'assets'
+STORAGES = {
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage'},
+}
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = DATA_DIR / 'media'
 
 # Arduino
 ARDUINO_PORT = config('ARDUINO_PORT', default='/dev/tty.usbmodem1101')
@@ -124,9 +158,40 @@ ARDUINO_BAUDRATE = config('ARDUINO_BAUDRATE', default=9600, cast=int)
 MAX_FAMILY_MEMBERS = config('MAX_FAMILY_MEMBERS', default=5, cast=int)
 
 # VAPID Keys for Web Push
-VAPID_PRIVATE_KEY = config('VAPID_PRIVATE_KEY')
-VAPID_PUBLIC_KEY = config('VAPID_PUBLIC_KEY')
-VAPID_CLAIMS_EMAIL = config('VAPID_CLAIMS_EMAIL')
+def _generate_vapid_pair():
+    import base64
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.hazmat.primitives import serialization
+    key = ec.generate_private_key(ec.SECP256R1())
+    private_pem = key.private_bytes(
+        serialization.Encoding.PEM,
+        serialization.PrivateFormat.PKCS8,
+        serialization.NoEncryption(),
+    ).decode().strip().replace('\n', '\\n')
+    public = key.public_key().public_bytes(
+        serialization.Encoding.X962,
+        serialization.PublicFormat.UncompressedPoint,
+    )
+    public_b64 = base64.urlsafe_b64encode(public).decode().rstrip('=')
+    return private_pem, public_b64
+
+
+# Keys are generated on first run if not provided. Changing them later
+# invalidates every existing push subscription, so they are persisted.
+_vapid_private = config('VAPID_PRIVATE_KEY', default='')
+_vapid_public = config('VAPID_PUBLIC_KEY', default='')
+if not (_vapid_private and _vapid_public):
+    _vapid_file = DATA_DIR / '.vapid_keys'
+    if _vapid_file.exists():
+        _vapid_private, _vapid_public = _vapid_file.read_text().split('\n', 1)
+    else:
+        _vapid_private, _vapid_public = _generate_vapid_pair()
+        _vapid_file.write_text(_vapid_private + '\n' + _vapid_public)
+        _vapid_file.chmod(0o600)
+
+VAPID_PRIVATE_KEY = _vapid_private
+VAPID_PUBLIC_KEY = _vapid_public
+VAPID_CLAIMS_EMAIL = config('VAPID_CLAIMS_EMAIL', default='admin@example.com')
 
 # Arduino Simulation Value
 ARDUINO_SIMULATION = config('ARDUINO_SIMULATION', default=True, cast=bool)
@@ -134,9 +199,23 @@ ARDUINO_SIMULATION = config('ARDUINO_SIMULATION', default=True, cast=bool)
 # Face Similarity Threshold
 FACE_SIMILARITY_THRESHOLD = config('FACE_SIMILARITY_THRESHOLD', default=0.4, cast=float)
 
-# Required for ngrok to not show interstitial page
+# Behind a tunnel / reverse proxy (Cloudflare, Tailscale Funnel, ngrok) TLS is
+# terminated upstream and the original scheme arrives in this header.
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
 
-CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='').split(',')
+# Wildcards are allowed by Django, e.g. https://*.trycloudflare.com
+CSRF_TRUSTED_ORIGINS = [
+    o.strip() for o in config(
+        'CSRF_TRUSTED_ORIGINS',
+        default='https://*.trycloudflare.com,https://*.ts.net,https://*.ngrok-free.app',
+    ).split(',') if o.strip()
+]
+
+# Cookies are only marked Secure when explicitly enabled, so plain-HTTP LAN
+# access (http://192.168.x.x:8000) keeps working out of the box.
+SESSION_COOKIE_SECURE = config('SECURE_COOKIES', default=False, cast=bool)
+CSRF_COOKIE_SECURE = SESSION_COOKIE_SECURE
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 30
 
 ANTISPOOFING_THRESHOLD = config('ANTISPOOFING_THRESHOLD', default=0.6, cast=float)

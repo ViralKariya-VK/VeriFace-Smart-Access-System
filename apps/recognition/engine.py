@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
 import os
+import threading
 from django.conf import settings
 import onnxruntime
 
@@ -32,6 +33,7 @@ class FaceEngine:
             return
         self._initialized = True
         self.app = None
+        self._lock = threading.Lock()  # detector settings are shared state
         self._load_model()
 
     def _load_model(self):
@@ -92,8 +94,24 @@ class FaceEngine:
         if self.app is None:
             return None
 
+        # Phone photos are 12+ megapixels — shrink first, detection doesn't need them
+        h, w = image.shape[:2]
+        if max(h, w) > 1280:
+            scale = 1280 / max(h, w)
+            image = cv2.resize(image, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
+
         # InsightFace expects BGR — OpenCV default, no conversion needed
-        faces = self.app.get(image)
+        with self._lock:
+            faces = self.app.get(image)
+
+            if not faces:
+                # Enrollment is a one-off, so spend more time looking: a face that
+                # is small in a big photo is missed by the fast 320px live detector.
+                self.app.prepare(ctx_id=0, det_size=(640, 640))
+                try:
+                    faces = self.app.get(image)
+                finally:
+                    self.app.prepare(ctx_id=0, det_size=(320, 320))
 
         if not faces:
             return None
@@ -160,60 +178,57 @@ class FaceEngine:
         norm_b = embedding_b / np.linalg.norm(embedding_b)
         return float(np.dot(norm_a, norm_b))
 
-    def recognize(self, frame, stored_embeddings, threshold=0.4):
+    @staticmethod
+    def _crop(frame, face, pad=30):
+        """Face crop with a little context around it — nicer in the access log."""
+        bbox = face.bbox.astype(int)
+        h, w = frame.shape[:2]
+        x1, y1 = max(0, bbox[0] - pad), max(0, bbox[1] - pad)
+        x2, y2 = min(w, bbox[2] + pad), min(h, bbox[3] + pad)
+        return frame[y1:y2, x1:x2]
+
+    def recognize(self, frame, stored_embeddings, threshold=0.4,
+                  min_face=60, min_det_score=0.6):
         """
         Check if any face in frame matches any stored embedding.
-        
-        Args:
-            frame: numpy array (BGR)
-            stored_embeddings: list of (profile_id, embedding) tuples
-            threshold: cosine similarity threshold
-        
-        Returns:
-            (matched_profile_id, face_location, face_image) or (None, None, None)
-        
-        Why iterate all stored embeddings?
-        We support up to 5 family members — all should be able to open the door.
-        We check against all enrolled faces and return the best match.
+
+        Returns (matched_profile_id, bbox, face_image, unknown) where `unknown`
+        is None, or (face_image, embedding) for the most prominent *unmatched*
+        face — a real, reasonably large face that belongs to nobody enrolled.
+        Tiny or low-confidence detections are ignored so a poster in the
+        background or a far-off passer-by doesn't count as a visitor.
+
+        We support up to 5 family members — all are checked and the best
+        match wins.
         """
-        if self.app is None or not stored_embeddings:
-            return None, None, None
+        if self.app is None:
+            return None, None, None, None
 
-        faces = self.app.get(frame)
+        with self._lock:
+            faces = self.app.get(frame)
         if not faces:
-            return None, None, None
+            return None, None, None, None
 
-        best_match_id = None
-        best_score = -1
-        best_face = None
-
+        best_match_id, best_score, best_face = None, -1, None
         for face in faces:
-            live_embedding = face.embedding
-
             for profile_id, stored_embedding in stored_embeddings:
-                score = self.compare(live_embedding, stored_embedding)
-
+                score = self.compare(face.embedding, stored_embedding)
                 if score > threshold and score > best_score:
-                    best_score = score
-                    best_match_id = profile_id
-                    best_face = face
+                    best_score, best_match_id, best_face = score, profile_id, face
 
         if best_match_id:
-            # Crop face image for the access log
-            bbox = best_face.bbox.astype(int)
-            # Add padding around the face — looks better in logs
-            pad = 30
-            h, w = frame.shape[:2]
-            x1 = max(0, bbox[0] - pad)
-            y1 = max(0, bbox[1] - pad)
-            x2 = min(w, bbox[2] + pad)
-            y2 = min(h, bbox[3] + pad)
-            face_image = frame[y1:y2, x1:x2]
-
             print(f"Face matched — profile {best_match_id} (score: {best_score:.3f})")
-            return best_match_id, bbox, face_image
+            return best_match_id, best_face.bbox.astype(int), self._crop(frame, best_face), None
 
-        return None, None, None
+        # Nobody matched: is there a face worth reporting?
+        candidates = [
+            f for f in faces
+            if (f.bbox[2] - f.bbox[0]) >= min_face and float(f.det_score) >= min_det_score
+        ]
+        if not candidates:
+            return None, None, None, None
+        biggest = max(candidates, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
+        return None, None, None, (self._crop(frame, biggest), biggest.embedding)
 
 
 # Singleton instance

@@ -1,16 +1,15 @@
-# For Mac Users
-# Install cmake using: brew install cmake
-
-# Requirements
-django 
-python-decouple 
-insightface 
-onnxruntime 
-opencv-python-headless 
-pillow 
-pyserial 
-cryptography 
-qrcode 
-psycopg2-binary 
+# Mac (Apple Silicon) users: brew install cmake  (needed to build insightface)
+django>=5.2,<5.3
+python-decouple
+whitenoise
+gunicorn
+insightface
+onnxruntime
+opencv-python-headless
+pillow
+pyserial
+cryptography
+qrcode
+psycopg2-binary
 numpy
 pywebpush
