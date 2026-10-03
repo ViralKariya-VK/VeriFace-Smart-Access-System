@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A home server on the local network is plain HTTP (http://192.168.x.x:8000).
+     Remote access through a tunnel is HTTPS. Both must work. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
