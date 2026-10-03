@@ -63,15 +63,22 @@ def send_push_to_device(device_id, message):
     If the camera is blocked, every family member should know —
     not just the owner. It's a shared security concern.
     """
-    from apps.core.models import PushSubscription
+    from apps.core.models import Device, Event, PushSubscription
+
+    # Always record the event — the Android app (and anything else polling
+    # /api/events/) reads from here, independent of web-push subscriptions.
+    try:
+        Event.objects.create(device_id=device_id, message=message[:255])
+        # Keep the table small: drop events older than a week
+        from datetime import timedelta
+        from django.utils import timezone
+        Event.objects.filter(created_at__lt=timezone.now() - timedelta(days=7)).delete()
+    except Exception as e:
+        print(f"⚠️  Could not record event: {e}")
 
     subscriptions = PushSubscription.objects.filter(
         profile__device__device_id=device_id
     )
-
-    if not subscriptions.exists():
-        print(f"No push subscriptions found for device {device_id}")
-        return
 
     for sub in subscriptions:
         send_push_to_subscription(sub, message)

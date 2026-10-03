@@ -12,62 +12,22 @@
         </span>
     </div>
 
+    <div class="filter-tabs">
+        <a href="?filter=all" class="filter-tab {% if active_filter == 'all' %}active{% endif %}">All</a>
+        <a href="?filter=granted" class="filter-tab {% if active_filter == 'granted' %}active{% endif %}">Granted</a>
+        <a href="?filter=denied" class="filter-tab {% if active_filter == 'denied' %}active{% endif %}">
+            Unknown{% if denied_count %} · {{ denied_count }}{% endif %}
+        </a>
+    </div>
+
     <div class="log-list" id="log-list">
         {% if access_logs %}
-            {% for log in access_logs %}
-            <div class="log-card fade-up"
-                 style="animation-delay: {{ forloop.counter0 }}00ms">
-
-                {% if log.image %}
-                    <img class="log-photo" src="{{ log.image.url }}" alt="">
-                {% else %}
-                    <div class="log-photo"
-                         style="background: var(--bg-elevated);
-                                border-radius: var(--radius-sm);
-                                display: flex; align-items: center;
-                                justify-content: center;">
-                        <svg width="20" height="20" viewBox="0 0 24 24"
-                             fill="none" stroke="var(--text-muted)" stroke-width="1.5">
-                            <circle cx="12" cy="8" r="4"/>
-                            <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
-                        </svg>
-                    </div>
-                {% endif %}
-
-                <div class="log-info">
-                    <div class="log-name">
-                        {% if log.profile %}
-                            {{ log.profile.user.username }}
-                        {% elif log.access_type == 'qr' %}
-                            Guest (QR)
-                        {% else %}
-                            Unknown
-                        {% endif %}
-                    </div>
-                    <div class="log-time font-mono">
-                        {{ log.timestamp|date:"d M Y · H:i:s" }}
-                    </div>
-                    <div style="margin-top: 2px;">
-                        <span class="badge badge-accent"
-                              style="font-size: 0.6rem; padding: 2px 8px;">
-                            {{ log.access_type|upper }}
-                        </span>
-                    </div>
-                </div>
-
-                {% if log.access_granted %}
-                    <span class="badge badge-success">GRANTED</span>
-                {% else %}
-                    <span class="badge badge-danger">DENIED</span>
-                {% endif %}
-
-            </div>
-            {% endfor %}
+            {% include 'app/partials/log_cards.html' %}
         {% else %}
             <div style="text-align: center; padding: 48px 24px;
                         font-family: var(--font-mono); font-size: 0.75rem;
                         color: var(--text-muted); letter-spacing: 0.08em;">
-                NO ACCESS LOGS YET
+                {% if active_filter == 'denied' %}NO UNKNOWN VISITORS{% else %}NO ACCESS LOGS YET{% endif %}
             </div>
         {% endif %}
     </div>
@@ -93,7 +53,7 @@ function loadMore(page) {
     btn.textContent = 'Loading...';
     btn.disabled = true;
 
-    fetch(`/logs/?page=${page}`, {
+    fetch(`/logs/?filter={{ active_filter }}&page=${page}`, {
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
     })
     .then(r => r.json())

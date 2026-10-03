@@ -46,3 +46,31 @@ def save_push_subscription(request):
 def vapid_public_key(request):
     from django.conf import settings
     return JsonResponse({'public_key': settings.VAPID_PUBLIC_KEY})
+
+
+@login_required
+def events_since(request):
+    """
+    Alerts for the signed-in user's device, newer than ?after=<id>.
+    Polled by the Android app. Without ?after it returns no events, just the
+    latest id, so a freshly installed app doesn't replay old history.
+    """
+    from apps.core.models import Event
+
+    try:
+        device = request.user.profile.device
+    except Exception:
+        return JsonResponse({'events': [], 'latest': 0})
+
+    qs = Event.objects.filter(device=device)
+    latest = qs.order_by('-id').values_list('id', flat=True).first() or 0
+
+    after = request.GET.get('after')
+    if after is None or not after.isdigit():
+        return JsonResponse({'events': [], 'latest': latest})
+
+    events = [
+        {'id': e.id, 'message': e.message, 'at': e.created_at.isoformat()}
+        for e in qs.filter(id__gt=int(after))[:50]
+    ]
+    return JsonResponse({'events': events, 'latest': latest})

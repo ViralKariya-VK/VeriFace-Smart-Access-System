@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="logs-container">
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+        <a href="{% url 'user_profile' %}" style="color: var(--text-muted);">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M19 12H5M12 5l-7 7 7 7"/>
+            </svg>
+        </a>
+        <div class="logs-title">Manage {{ device.name }}</div>
+    </div>
+
+    {% if messages %}
+    <div class="messages" style="margin-bottom: 12px;">
+        {% for message in messages %}
+        <div class="message {% if message.tags %}{{ message.tags }}{% else %}error{% endif %}">{{ message }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Camera -->
+    <section class="manage-card">
+        <div class="manage-h">Camera</div>
+        <form method="POST" id="camera-form">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="camera">
+            <input class="form-input" type="text" name="camera_source" id="camera_source"
+                   value="{{ device.camera_source }}" autocomplete="off" autocapitalize="off" spellcheck="false">
+            <div class="manage-hint">
+                RTSP (<code>rtsp://user:pass@IP:554/stream1</code>), phone app
+                (<code>http://IP:8080/video</code>) or <code>0</code> for a USB webcam.
+            </div>
+            <div style="display: flex; gap: 8px; margin-top: 12px;">
+                <button type="button" class="btn btn-ghost" id="test-btn">Test</button>
+                <button type="submit" class="btn btn-primary">Save</button>
+            </div>
+            <div id="test-result" class="manage-hint" style="margin-top: 10px;"></div>
+        </form>
+    </section>
+
+    <!-- Alerts -->
+    <section class="manage-card">
+        <div class="manage-h">Alerts</div>
+        <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="alerts">
+            <label class="manage-toggle">
+                <span>
+                    Unknown visitors
+                    <small>Snapshot + notification when a face that isn't enrolled is at the door</small>
+                </span>
+                <input type="checkbox" name="alert_unknown" {% if device.alert_unknown %}checked{% endif %}
+                       onchange="this.form.submit()">
+            </label>
+        </form>
+    </section>
+
+    <!-- Members -->
+    <section class="manage-card">
+        <div class="manage-h">Members <span>{{ members|length }} / {{ device.max_members }}</span></div>
+        {% for m in members %}
+        <div class="manage-member">
+            {% if m.face_image %}<img src="{{ m.face_image.url }}" alt="">{% else %}<div class="ph"></div>{% endif %}
+            <div class="who">
+                <div>{{ m.user.username }}</div>
+                <small>{{ m.role|upper }} · {{ m.user.email }}</small>
+            </div>
+            {% if m.id != me.id %}
+            <form method="POST" onsubmit="return confirm('Remove {{ m.user.username|escapejs }}? Their face is deleted and they can no longer open the door.');">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="remove_member">
+                <input type="hidden" name="profile_id" value="{{ m.id }}">
+                <button type="submit" class="btn btn-danger" style="width:auto; padding:6px 12px; font-size:0.65rem;">REMOVE</button>
+            </form>
+            {% endif %}
+        </div>
+        {% endfor %}
+        <div class="manage-hint" style="margin-top: 10px;">
+            New members join with the product key <code>{{ device.device_id }}</code> on the sign-up screen.
+        </div>
+    </section>
+
+    <!-- Logs -->
+    <section class="manage-card">
+        <div class="manage-h">Access logs <span>{{ log_count }} entries</span></div>
+        <form method="POST" onsubmit="return confirm('Delete all {{ log_count }} log entries and their photos? This cannot be undone.');">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="clear_logs">
+            <button type="submit" class="btn btn-danger" {% if not log_count %}disabled{% endif %}>Clear all logs</button>
+        </form>
+    </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('test-btn').addEventListener('click', async () => {
+    const out = document.getElementById('test-result'), btn = document.getElementById('test-btn');
+    const src = document.getElementById('camera_source').value.trim();
+    btn.disabled = true; out.textContent = 'Connecting… (up to 10 s)';
+    try {
+        const res = await fetch("{% url 'manage_test_camera' %}", {
+            method: 'POST',
+            headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value},
+            body: new URLSearchParams({camera_source: src}),
+        });
+        if ((res.headers.get('content-type') || '').startsWith('image/')) {
+            const url = URL.createObjectURL(await res.blob());
+            out.innerHTML = '<div style="color:var(--success);margin-bottom:8px">Camera works ✓</div><img src="' + url + '" style="width:100%;border-radius:8px">';
+        } else { out.textContent = (await res.json()).error || 'Camera test failed.'; }
+    } catch (e) { out.textContent = 'Test failed: ' + e; }
+    btn.disabled = false;
+});
+</script>
+{% endblock %}

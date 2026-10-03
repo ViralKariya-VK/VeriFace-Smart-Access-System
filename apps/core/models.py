@@ -38,9 +38,18 @@ class Device(models.Model):
         default='offline'
     )
     camera_status_updated_at = models.DateTimeField(null=True, blank=True)
+    # Log + alert when a face is seen that matches nobody enrolled
+    alert_unknown = models.BooleanField(
+        default=True,
+        help_text='Notify members and keep a snapshot when an unrecognised face is at the door'
+    )
 
     def __str__(self):
         return f"{self.name} ({self.device_id})"
+
+    @property
+    def max_members(self):
+        return settings.MAX_FAMILY_MEMBERS
 
     def member_count(self):
         # Helper to check if device is full before allowing new registration
@@ -155,3 +164,22 @@ class PushSubscription(models.Model):
 
     def __str__(self):
         return f"Push subscription for {self.profile.user.username}"
+
+
+class Event(models.Model):
+    """
+    A user-facing alert (door opened, guest entered, camera blocked...).
+
+    Web Push needs a service worker, which Android WebViews don't support, so
+    the Android app reads these over a simple authenticated endpoint instead.
+    Every alert is recorded here no matter who is subscribed to what.
+    """
+    device = models.ForeignKey(Device, on_delete=models.CASCADE, related_name='events')
+    message = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['id']
+
+    def __str__(self):
+        return f"{self.device_id}: {self.message}"

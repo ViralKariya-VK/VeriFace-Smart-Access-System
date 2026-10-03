@@ -10,7 +10,27 @@ from django.contrib.auth.decorators import login_required
 
 
 def landing(request):
+    from apps.core.models import Device
+    # Fresh install: send the owner straight into setup
+    if not Device.objects.exists():
+        return redirect('setup')
     return render(request, 'landing.html')
+
+
+# --- Login throttling -------------------------------------------------------
+# The app can be exposed to the internet through a tunnel, so passwords must
+# not be guessable by brute force. Per username+IP, in-memory (single process).
+MAX_LOGIN_FAILURES = 5
+LOGIN_LOCKOUT_SECONDS = 15 * 60
+
+
+def _client_ip(request):
+    forwarded = request.META.get('HTTP_CF_CONNECTING_IP') or request.META.get('HTTP_X_FORWARDED_FOR', '')
+    return forwarded.split(',')[0].strip() or request.META.get('REMOTE_ADDR', '')
+
+
+def _throttle_key(request, username):
+    return f"login-fail:{username.lower()}:{_client_ip(request)}"
 
 
 def login(request):
@@ -26,17 +46,23 @@ def login(request):
             messages.error(request, "Please enter both username and password.")
             return render(request, 'auth/login.html')
 
+        from django.core.cache import cache
+        key = _throttle_key(request, username)
+        if cache.get(key, 0) >= MAX_LOGIN_FAILURES:
+            messages.error(request, "Too many failed attempts. Try again in 15 minutes.")
+            return render(request, 'auth/login.html', status=429)
+
         user = authenticate(request, username=username, password=password)
 
         if user is None:
+            cache.set(key, cache.get(key, 0) + 1, LOGIN_LOCKOUT_SECONDS)
             messages.error(request, "Invalid username or password.")
             return render(request, 'auth/login.html')
 
+        cache.delete(key)
         auth_login(request, user)
 
-        # Start face recognition pipeline for this user's device
-        # We do this here — not in AppConfig — because pipeline should
-        # only run when someone is actually logged in
+        # Safety net: make sure recognition is running (it normally starts at boot)
         try:
             from apps.recognition.pipeline import start_pipeline
             device_id = user.profile.device.device_id
@@ -50,53 +76,8 @@ def login(request):
 
 
 def logout(request):
-    if request.user.is_authenticated:
-        try:
-            from apps.recognition.pipeline import stop_pipeline
-            from apps.core.models import Profile
-
-            device_id = request.user.profile.device.device_id
-
-            # Only stop pipeline if no other family members are logged in
-            # How do we check? Count active sessions for this device.
-            # Alternative: Django signals on session expiry — complex
-            # We use a simpler approach: check if any other user from
-            # the same device has an active session
-            from django.contrib.sessions.models import Session
-            from django.utils import timezone
-            import json
-
-            active_sessions = Session.objects.filter(
-                expire_date__gt=timezone.now()
-            )
-
-            other_users_active = False
-            current_user_id = str(request.user.id)
-
-            for session in active_sessions:
-                data = session.get_decoded()
-                session_user_id = data.get('_auth_user_id')
-                if session_user_id and session_user_id != current_user_id:
-                    # Check if this user belongs to same device
-                    try:
-                        other_profile = Profile.objects.get(
-                            user__id=session_user_id,
-                            device__device_id=device_id
-                        )
-                        other_users_active = True
-                        break
-                    except Profile.DoesNotExist:
-                        continue
-
-            if not other_users_active:
-                stop_pipeline(device_id)
-                print(f"🛑 No other users active — pipeline stopped")
-            else:
-                print(f"👥 Other users still active — pipeline kept running")
-
-        except Exception as e:
-            print(f"⚠️  Logout pipeline check failed: {e}")
-
+    # The recognition pipeline is a property of the device, not of a login
+    # session — the door must keep working while everyone is logged out.
     auth_logout(request)
     return redirect('login')
 
@@ -215,9 +196,9 @@ def upload_face(request):
             messages.error(request, "Please upload a JPG or PNG image.")
             return render(request, 'auth/upload_face.html')
 
-        # Validate file size — max 5MB
-        if face_image.size > 5 * 1024 * 1024:
-            messages.error(request, "Image must be under 5MB.")
+        # Validate file size — max 15MB (phone photos are big; they are downscaled)
+        if face_image.size > 15 * 1024 * 1024:
+            messages.error(request, "Image must be under 15MB.")
             return render(request, 'auth/upload_face.html')
 
         try:
@@ -240,6 +221,12 @@ def upload_face(request):
             with open(path, 'rb') as f:
                 profile.face_embedding.save(filename, ContentFile(f.read()))
             profile.save()
+
+            # The engine's scratch copy is now redundant — don't leave a second
+            # copy of someone's biometric data lying around
+            import os
+            if os.path.exists(path) and os.path.abspath(path) != os.path.abspath(profile.face_embedding.path):
+                os.remove(path)
 
             # Clean up session
             del request.session['registering_user_id']

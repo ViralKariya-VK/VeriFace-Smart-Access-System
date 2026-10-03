@@ -1,6 +1,21 @@
+import os
+import sys
 import threading
 import time
 from django.apps import AppConfig
+
+
+def _should_autostart():
+    """
+    Background services run in the real server process only — never during
+    migrate, collectstatic, tests or other management commands.
+
+    - `runserver`: Django's reloader sets RUN_MAIN=true in the serving child.
+    - Docker / gunicorn: set VERIFACE_AUTOSTART=1 (the image does this).
+    """
+    if os.environ.get('VERIFACE_AUTOSTART', '').lower() in ('1', 'true', 'yes'):
+        return True
+    return os.environ.get('RUN_MAIN') == 'true' and 'runserver' in sys.argv
 
 
 class CoreConfig(AppConfig):
@@ -8,34 +23,21 @@ class CoreConfig(AppConfig):
     name = 'apps.core'
 
     def ready(self):
-        """
-        Called once when Django finishes loading.
-        We start background threads here.
-        
-        Why the 5 second delay?
-        Django's ready() fires before the DB connection pool is fully
-        initialized. Without the delay, Device.objects.all() can fail
-        with "connection refused" on startup.
-        Alternative: use post_migrate signal — but that only fires
-        after migrations, not on every startup.
-        """
-        # Avoid running twice in development (Django reloader starts two processes)
-        import os
-        if os.environ.get('RUN_MAIN') != 'true':
+        if not _should_autostart():
             return
-
         threading.Thread(target=self._delayed_start, daemon=True).start()
 
     def _delayed_start(self):
+        # Give Django a moment to finish loading before touching the DB
         time.sleep(3)
         print("🚀 Starting VeriFace background services...")
 
-        # Run startup cleanup first
-        from django.core.management import call_command
-        call_command('startup_cleanup')
+        from apps.core.bootstrap import bootstrap_device_from_env
+        bootstrap_device_from_env()
 
         from apps.camera.manager import camera_manager
         from apps.guest.scanner import start_qr_scanners
+        from apps.recognition.pipeline import start_all_pipelines
 
         camera_manager.start_all_cameras()
         camera_manager.ready.wait(timeout=30)
@@ -44,6 +46,5 @@ class CoreConfig(AppConfig):
         start_qr_scanners()
         print("🔍 QR scanners started")
 
-        # No need to auto-restart pipelines anymore
-        # Users will log in fresh and pipelines start on login
+        start_all_pipelines()
         print("✅ All background services running")
